@@ -45,7 +45,7 @@ int main() {
     dispNameValue("particle count", max_particle_count);
     dispNameValue("num of particle iters", numParticleIters);
     dispNameValue("num of fluid iters", numFluidIters);
-    dispNameValue("overrelaxation", overrelaxation, true);
+    dispNameValue("overrelaxation", overrelaxation);
     std::cout << "\t\"measurements\" : [\n";
 
     float total_time = 0;
@@ -122,7 +122,7 @@ int main() {
         window.display();
         last_mouse_pos = mouse_pos;
     }
-    std::cout << "]\n}\n";
+    std::cout << "\t]\n}\n";
 
     return 0;
 }
