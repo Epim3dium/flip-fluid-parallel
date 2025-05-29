@@ -27,9 +27,26 @@ int main() {
     auto fluid_size = sf::Vector2<int>(screen_area.size() / fluid_cell_size);
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
+    int numParticleIters = 16;
+    int numFluidIters = 16;
+    float overrelaxation = 1.9f;
     auto area = screen_area;
     area.setSize(area.size() * 0.9f);
     init_random(particles, area, 1.1f);
+
+    std::cout << "{\n";
+    auto dispNameValue = [&](std::string name, auto value, bool isLast = false) {
+        std::cout << "\t\"" << name << "\" : \"" << value << "\"";
+        if(!isLast)
+            std::cout << ",";
+        std::cout << "\n";
+    };
+    dispNameValue("particle radius", particles.radius);
+    dispNameValue("particle count", max_particle_count);
+    dispNameValue("num of particle iters", numParticleIters);
+    dispNameValue("num of fluid iters", numFluidIters);
+    dispNameValue("overrelaxation", overrelaxation, true);
+    std::cout << "\t\"measurements\" : [\n";
 
     float total_time = 0;
     Clock deltaClock;
@@ -63,18 +80,30 @@ int main() {
         static std::vector<float> fpss;
         static std::vector<float> col_times;
         static std::vector<float> fluid_times;
-        auto [col, fl] = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 16, 8, 1.9f, true);
+        auto [col, fl] = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, true);
         col_times.push_back(col);
         fluid_times.push_back(fl);
         fpss.push_back(1.f / deltaTime);
         if(report_clock.getElapsedTime() > 1.f) {
+            static bool displayed = false;
+            std::cout << "\t\t";
+            if(displayed) {
+                std::cout << ",";
+            }
+            displayed = true;
+            std::cout << "{\n";
             report_clock.restart();
-            auto avg = std::reduce(fpss.begin(), fpss.end()) / (float)fpss.size();
-            std::cout << "avg fps: " << avg / static_cast<float>(fpss.size()) << "\n";
-            avg = std::reduce(col_times.begin(), col_times.end()) / (float)col_times.size();
-            std::cout << "\tavg time for collisions: " << avg / static_cast<float>(col_times.size()) << "\n";
-            avg = std::reduce(fluid_times.begin(), fluid_times.end()) / (float)fluid_times.size();
-            std::cout << "\tavg time for fluid: " << avg / static_cast<float>(fluid_times.size()) << "\n";
+            auto displayAvg = [&](std::string name, auto& array, bool isLast = false) {
+                auto avg = std::reduce(array.begin(), array.end()) / (float)array.size();
+                std::cout << "\t\t\t\"" << name << "\" : \"" << avg << "\"";
+                if(!isLast)
+                    std::cout << ",";
+                std::cout << "\n";
+            };
+            displayAvg("FPS", fpss);
+            displayAvg("particle time", col_times);
+            displayAvg("fluid time", fluid_times, true);
+            std::cout << "\t\t}\n";
             fpss.clear();
             col_times.clear();
             fluid_times.clear();
@@ -93,6 +122,7 @@ int main() {
         window.display();
         last_mouse_pos = mouse_pos;
     }
+    std::cout << "]\n}\n";
 
     return 0;
 }

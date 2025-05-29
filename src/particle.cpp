@@ -86,7 +86,6 @@ void collide(Particles& particles, AABB sim_area) {
 
     if(col_grid.size() != max_segs_rows * max_segs_cols) {
         col_grid = std::vector<CompactVec>(max_segs_rows*max_segs_cols);
-        std::cout << "reallocated grid\n";
     }
     auto max_dim = std::max(max_segs_cols, max_segs_rows);
     std::unordered_set<uint32_t> active_containers[4];
