@@ -52,7 +52,6 @@ void collide(Particles& particles) {
         }
     }
 }
-static constexpr uint32_t max_compact_size = 64;
 typedef std::vector<uint32_t> CompactVec;
 
 void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_rows, const std::vector<CompactVec>& grid) {
@@ -97,10 +96,6 @@ void collide(Particles& particles, AABB sim_area) {
             continue;
         }
         auto& comp_vec = col_grid[(row+1) * max_segs_rows + col+1];
-        if(comp_vec.size() == max_compact_size) {
-            std::cerr << "max compact size too small - too high density\n";
-            continue;
-        }
         comp_vec.push_back(i);
         active_containers.insert((row+1) * max_dim + col+1);
     }
