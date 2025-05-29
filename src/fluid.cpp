@@ -1,4 +1,5 @@
 #include "fluid.hpp"
+#include "time.hpp"
 Fluid::Fluid(float cell_size, int width, int height) : m_cell_size(cell_size), m_width(width), m_height(height), m_num_cells(width * height){
     cell_color = std::vector<Color>(m_num_cells);
     cell_type = std::vector<eCellTypes>(m_num_cells, eCellTypes::Air);
@@ -252,24 +253,30 @@ void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation,
         }
     }
 }
-void Fluid::simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift) {
+std::tuple<float, float> Fluid::simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift) {
     auto numSubSteps = 1;
     auto sdt = dt / numSubSteps;
 
     sim_area.setSize(sim_area.size() - vec2f(m_cell_size, m_cell_size)*2.f);
 
+    float col_time = 0.f;
+    float fluid_time = 0.f;
     for (int step = 0; step < numSubSteps; step++) {
+        Stopwatch stop;
         for(int i = 0; i < numParticleIters; i++) {
             accelerate(particles, gravity);
             integrate(particles, sdt / (float)numParticleIters);
             constraint(particles, sim_area);
             collide(particles, sim_area);
         }
+        col_time += stop.restart();
         transferVelocities(true, 1.f, particles);
         updateParticleDensity(particles);
         solveIncompressibility(numPressureIters, sdt, overRelaxation, compensateDrift);
         transferVelocities(false, flipRatio, particles);
+        fluid_time += stop.restart();
     }
+    return {col_time, fluid_time};
 }
 void Fluid::draw(AABB area, sf::RenderTarget &window,
           std::unordered_map<eCellTypes, Color> color_table) {

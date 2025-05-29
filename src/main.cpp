@@ -60,16 +60,24 @@ int main() {
         float deltaTime = deltaClock.restart().asSeconds();
         total_time += deltaTime;
 
-        float solver_time = 0.f;
-        float collision_time = 0.f;
-        fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 8, 8, 1.9f, true);
         static std::vector<float> fpss;
+        static std::vector<float> col_times;
+        static std::vector<float> fluid_times;
+        auto [col, fl] = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 16, 8, 1.9f, true);
+        col_times.push_back(col);
+        fluid_times.push_back(fl);
         fpss.push_back(1.f / deltaTime);
         if(report_clock.getElapsedTime() > 1.f) {
             report_clock.restart();
-            auto avg = std::reduce(fpss.begin(), fpss.end());
+            auto avg = std::reduce(fpss.begin(), fpss.end()) / (float)fpss.size();
             std::cout << "avg fps: " << avg / static_cast<float>(fpss.size()) << "\n";
+            avg = std::reduce(col_times.begin(), col_times.end()) / (float)col_times.size();
+            std::cout << "\tavg time for collisions: " << avg / static_cast<float>(col_times.size()) << "\n";
+            avg = std::reduce(fluid_times.begin(), fluid_times.end()) / (float)fluid_times.size();
+            std::cout << "\tavg time for fluid: " << avg / static_cast<float>(fluid_times.size()) << "\n";
             fpss.clear();
+            col_times.clear();
+            fluid_times.clear();
         }
 
         window.clear();
