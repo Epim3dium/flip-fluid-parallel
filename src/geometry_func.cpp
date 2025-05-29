@@ -44,8 +44,8 @@ float perp_dot(vec2f a, vec2f b) {
 #define SQR(x) ((x) * (x))
 bool isOverlappingPointAABB(const vec2f& p, const AABB& r) {
     return (p.x >= r.center().x - r.size().x / 2 &&
-            p.y > r.center().y - r.size().y / 2 &&
-            p.x < r.center().x + r.size().x / 2 &&
+            p.y >= r.center().y - r.size().y / 2 &&
+            p.x <= r.center().x + r.size().x / 2 &&
             p.y <= r.center().y + r.size().y / 2);
 }
 bool isOverlappingPointCircle(const vec2f& p, const Circle& c) {

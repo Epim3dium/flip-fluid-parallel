@@ -3,20 +3,20 @@
 #include "circle.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <cstdint>
-static constexpr uint32_t max_particle_count = 1101U;
+static constexpr uint32_t max_particle_count = 5000;
 struct Particles {
-    vec2f prev_position[max_particle_count];
+    static constexpr float radius = 4.f;
+    static constexpr float diameter = radius*2;
     vec2f position[max_particle_count];
     vec2f velocity[max_particle_count];
     vec2f acceleration[max_particle_count];
-    float radius[max_particle_count];
-    Color color[max_particle_count];
 };
 void derive(Particles& particles, float dt);
 void accelerate(Particles& particles, vec2f gravity);
 void integrate(Particles& particles, float dt);
 void collide(Particles& particles);
+void collide(Particles& particles, AABB sim_area);
 void constraint(Particles& particles, AABB area);
-void draw(Particles& particles, sf::RenderTarget& window);
-void init_random(Particles& particles, float width, std::pair<float, float> velocity_range, std::pair<float, float> radius_range, int seed);
+void draw(Particles& particles, sf::RenderTarget& window, sf::Color color = sf::Color(255, 255, 255, 255));
+void init_random(Particles& particles, AABB screen_area, float spacing = 1.f, int seed = 42);
 #endif

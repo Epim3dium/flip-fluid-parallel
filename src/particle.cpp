@@ -1,14 +1,13 @@
 #include "particle.hpp"
 #include "geometry_func.hpp"
 #include <SFML/Graphics/CircleShape.hpp>
+#include <array>
+#include <cmath>
 #include <cstdlib>
 #include <execution>
-void derive(Particles& particles, float dt) {
-    for(int i = 0; i < max_particle_count; i++) {
-        particles.velocity[i] = (particles.position[i] - particles.prev_position[i]);
-        particles.prev_position[i] = particles.position[i];
-    }
-}
+#include <iostream>
+#include <stdexcept>
+#include <unordered_set>
 
 void accelerate(Particles& particles, vec2f gravity) {
     for(int i = 0; i < max_particle_count; i++) {
@@ -17,71 +16,142 @@ void accelerate(Particles& particles, vec2f gravity) {
 }
 void integrate(Particles& particles, float dt) {
     for(int i = 0; i < max_particle_count; i++) {
-        particles.position[i] += particles.velocity[i] + particles.acceleration[i] * dt * dt;;
+        particles.velocity[i] += particles.acceleration[i] * dt;
+        particles.position[i] += particles.velocity[i] * dt;
         particles.acceleration[i] = {0, 0};
+    }
+}
+void resolveVelocities(Particles& particles, int p1, int p2, vec2f normal) {
+    auto rel_vel = particles.velocity[p1] - particles.velocity[p2];
+    auto rel_vel_normal = dot(rel_vel, normal);
+    if (rel_vel_normal > 0) return;
+    float restitution = 0.1f;
+    float impulse = -(1 + restitution) * rel_vel_normal * 0.5;
+
+    particles.velocity[p1] += impulse * normal;
+    particles.velocity[p2] -= impulse * normal;
+
+}
+void processCollision(Particles& particles, int i, int ii) {
+    auto diff = particles.position[ii] - particles.position[i];
+    const float min_dist = particles.radius * 2;
+    if(qlen(diff) < min_dist * min_dist && qlen(diff) > 1e-10f) {
+        auto l = length(diff);
+        auto n = normal(diff);
+        static const float damping = 0.7f;
+        auto c = (min_dist - l) * 0.5f * damping;
+        particles.position[i] -= n * c;
+        particles.position[ii] += n * c;
+        resolveVelocities(particles, i, ii, -n);
     }
 }
 void collide(Particles& particles) {
     for(int i = 0; i < max_particle_count; i++) {
         for(int ii = i+1; ii < max_particle_count; ii++) {
-            auto diff = particles.position[ii] - particles.position[i];
-            auto min_dist = particles.radius[i] + particles.radius[ii];
-            if(qlen(diff) < min_dist * min_dist) {
-                auto l = length(diff);
-                auto c = min_dist - l;
-                auto wi = particles.radius[ii] / min_dist;
-                auto wii = particles.radius[i] / min_dist;
-                particles.position[i] -= normal(diff) * c * wi;
-                particles.position[ii] += normal(diff) * c * wii;
+            processCollision(particles, i, ii);
+        }
+    }
+}
+static constexpr uint32_t max_compact_size = 64;
+typedef std::vector<uint32_t> CompactVec;
+
+void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_rows, const std::vector<CompactVec>& grid) {
+    auto& comp_vec1 = grid[row*max_segs_rows + col];
+    if(comp_vec1.size() == 0) return;
+    std::vector<const CompactVec*> comp_vecs;
+    for(auto dir : {std::pair{1, 0}, {0, 1}, {1, 1}, {1, -1}}) {
+        comp_vecs.push_back(&grid[(row+dir.first) * max_segs_rows + col+dir.second]);
+    }
+
+    for(int i = 0; i < comp_vec1.size(); i++) {
+        auto idx1 = comp_vec1[i];
+        for(int ii = i + 1; ii < comp_vec1.size(); ii++) {
+            auto idx2 = comp_vec1[ii];
+            processCollision(particles, idx1, idx2);
+        }
+        for(auto other : comp_vecs) {
+            for(auto ii = 0; ii < other->size(); ii++) {
+                auto idx2 = (*other)[ii];
+                processCollision(particles, idx1, idx2);
             }
         }
     }
 }
+void collide(Particles& particles, AABB sim_area) {
+    const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
+    const uint32_t max_segs_rows = sim_area.size().y / particles.diameter + 1 + 2;
+    static std::vector<CompactVec> col_grid;
+
+    if(col_grid.size() != max_segs_rows * max_segs_cols) {
+        col_grid = std::vector<CompactVec>(max_segs_rows*max_segs_cols);
+        std::cout << "reallocated grid\n";
+    }
+    auto max_dim = std::max(max_segs_cols, max_segs_rows);
+    std::unordered_set<uint32_t> active_containers;
+    int counter = 0;
+    for(int i = 0; i < max_particle_count; i++) {
+        uint32_t col = (particles.position[i].x - sim_area.min.x) / particles.diameter;
+        uint32_t row = (particles.position[i].y - sim_area.min.y) / particles.diameter;
+        if(col+1 >= max_segs_cols || row+1 >= max_segs_rows) {
+            std::cerr << "out of range particle\n";
+            continue;
+        }
+        auto& comp_vec = col_grid[(row+1) * max_segs_rows + col+1];
+        if(comp_vec.size() == max_compact_size) {
+            std::cerr << "max compact size too small - too high density\n";
+            continue;
+        }
+        comp_vec.push_back(i);
+        active_containers.insert((row+1) * max_dim + col+1);
+    }
+
+    for(auto container : active_containers) {
+        auto row = container / max_dim;
+        auto col = container % max_dim;
+        compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
+    }
+
+    for(auto container : active_containers) {
+        auto row = container / max_dim;
+        auto col = container % max_dim;
+        col_grid[row * max_segs_rows + col].clear();
+    }
+
+}
 void constraint(Particles& particles, AABB area) {
     for(int i = 0; i < max_particle_count; i++) {
-        particles.position[i].x = std::clamp(particles.position[i].x, area.min.x, area.max.x);
-        particles.position[i].y = std::clamp(particles.position[i].y, area.min.y, area.max.y);
+        if(!isOverlappingPointAABB(particles.position[i], area)) {
+            if(particles.position[i].x > area.max.x || particles.position[i].x < area.min.x)
+                particles.velocity[i].x = 0;
+            if(particles.position[i].y > area.max.y || particles.position[i].y < area.min.y)
+                particles.velocity[i].y = 0;
+            particles.position[i].x = std::clamp(particles.position[i].x, area.min.x, area.max.x);
+            particles.position[i].y = std::clamp(particles.position[i].y, area.min.y, area.max.y);
+        }
     }
 }
-void draw(Particles& particles, sf::RenderTarget& window) {
+void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
     sf::CircleShape circ;
+    auto rad = particles.radius;
+    circ.setRadius(rad);
+    circ.setOrigin(rad, rad);
     circ.setPointCount(16U);
     for(int i = 0; i < max_particle_count; i++) { 
         circ.setPosition(particles.position[i].x, window.getSize().y - particles.position[i].y);
-        auto rad = particles.radius[i];
-        circ.setRadius(rad);
-        circ.setOrigin(rad, rad);
-        circ.setFillColor(particles.color[i]);
+        circ.setFillColor(color);
         window.draw(circ);
     }
 }
-void init_random(Particles& particles, float screen_width, std::pair<float, float> velocity_range, std::pair<float, float> radius_range, int seed) {
+void init_random(Particles& particles, AABB screen_area, float spacing, int seed) {
     srand(seed);
-    screen_width -= radius_range.second;
-    int width = screen_width / (radius_range.second * 2);
+    auto w = screen_area.size().x - particles.radius * 2.f;
+    int width = w / (particles.radius * 2 * spacing);
     for(int i = 0; i < max_particle_count; i++) { 
-        char r = ((float)rand() / RAND_MAX) * 255;
-        particles.color[i].r = 255;
-        particles.color[i].g = 255;
-        particles.color[i].b = 255;
-        float rad = ((float)rand() / RAND_MAX);
-        rad = (rad * (radius_range.second - radius_range.first) + radius_range.first);
-        particles.radius[i] = rad;
+        particles.position[i].x = (i % width) * particles.radius * 2.f * spacing + screen_area.min.x;
+        particles.position[i].y = (i / width) * particles.radius * 2.f * spacing + screen_area.min.y;
 
-        float offsetx = ((i/width) % 2) * radius_range.second;
-        particles.position[i].x = (i % width) * radius_range.second * 2 + offsetx;
-        particles.position[i].y = (i / width) * radius_range.second * 2;
-        particles.prev_position[i].x = particles.position[i].x;
-        particles.prev_position[i].y = particles.position[i].y;
-
-        float vx= (((float)rand() / RAND_MAX) - 0.5) * 2.f;
-        float vy= (((float)rand() / RAND_MAX) - 0.5) * 2.f;
-        vec2f n = normal({vx, vy});
-        float t = (float)rand() / RAND_MAX;
-        particles.velocity[i].x = n.x * ( t * (velocity_range.second - velocity_range.first) + velocity_range.first);
-        particles.velocity[i].y = n.y * ( t * (velocity_range.second - velocity_range.first) + velocity_range.first);
-        particles.acceleration[i].x = 0;
-        particles.acceleration[i].y = 0;
+        particles.velocity[i] =  {0, 0};
+        particles.acceleration[i] = {0, 0};
     }
 }
 

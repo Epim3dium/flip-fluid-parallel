@@ -4,7 +4,10 @@
 #include <SFML/Audio.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
+#include <omp.h>
+#include "fluid.hpp"
 #include "particle.hpp"
+#include "geometry_func.hpp"
 #include "time.hpp"
 
 
@@ -19,7 +22,13 @@ int main() {
     RenderWindow window(VideoMode(w, h), "demo");
     window.setFramerateLimit(60);
     Particles particles;
-    init_random(particles, w, {0, 0}, {7, 10}, 42);
+    auto fluid_cell_size = particles.diameter * 2.f;
+    auto fluid_size = sf::Vector2<int>(screen_area.size() / fluid_cell_size);
+    Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
+
+    auto area = screen_area;
+    area.setSize(area.size() * 0.9f);
+    init_random(particles, area, 2.0f);
 
     float total_time = 0;
     Clock deltaClock;
@@ -37,10 +46,12 @@ int main() {
         vec2f mouse_pos  = (vec2f)sf::Mouse().getPosition(window);
         mouse_pos.y = window.getSize().y - mouse_pos.y;
         vec2f mouse_dir = mouse_pos - last_mouse_pos;
+        const float brush_size = 50.f;
         if(qlen(mouse_dir) != 0) {
             for(int i = 0; i < max_particle_count; i++) {
-                if(length(mouse_pos - particles.position[i]) < 10.f) {
-                    particles.position[i] += normal(mouse_dir) * qlen(mouse_dir) * 0.01f;
+                auto scalar = length(mouse_dir) * 10000.f;
+                if(length(mouse_pos - particles.position[i]) < brush_size && scalar > 0.f) {
+                    particles.acceleration[i] = normal(mouse_dir) * std::clamp(scalar, 0.f, 100000.f);
                 }
             }
         }
@@ -48,36 +59,23 @@ int main() {
         float deltaTime = deltaClock.restart().asSeconds();
         total_time += deltaTime;
 
-        constexpr int steps = 8;
-        float dt = deltaTime / (float)steps;
-        accelerate(particles,  vec2f(0, -6000.f));
         float solver_time = 0.f;
         float collision_time = 0.f;
-        for(int i = 0; i < steps; i++) {
-            {
-                Stopwatch counter;
-                derive(particles, dt);
-                integrate(particles, dt);
-                solver_time += counter.getElapsedTime();
-            }
-            {
-                Stopwatch counter;
-                collide(particles);
-                constraint(particles, screen_area);
-                collision_time += counter.getElapsedTime();
-            }
-        }
+        fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 8, 8, 1.5f, true);
         if(report_clock.getElapsedTime() > 1.f) {
             report_clock.restart();
-            std::cout << "Raport at: " << total_time << "\n";
-            std::cout << "\tsolve time: " << solver_time / (solver_time + collision_time) * 100 << "%\n";
-            std::cout << "\tsolve time real: " << solver_time * 1000 << "ms\n";
-            std::cout << "\tcollision time: " << collision_time / (solver_time + collision_time) * 100 << "%\n";
-            std::cout << "\tcollision time real: " << collision_time * 1000 << "ms\n";
         }
 
         window.clear();
-        draw(particles, window);
+        fluid.draw(screen_area, window);
+        // draw(particles, window, Color(70, 70, 250));
+        sf::CircleShape cs(brush_size);
+        cs.setOrigin({brush_size, brush_size});
+        cs.setPosition(mouse_pos.x, screen_area.size().y - mouse_pos.y);
+        cs.setFillColor(Color(0, 0, 0, 0));
+        cs.setOutlineColor(Color(255, 255, 255));
+        cs.setOutlineThickness(2.f);
+        window.draw(cs);
         window.display();
         last_mouse_pos = mouse_pos;
     }
