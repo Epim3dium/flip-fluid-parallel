@@ -32,10 +32,10 @@ add_executable(sfml-example
     ${SOURCE_FILES} ${HEADER_FILES}
 )
 
-target_link_libraries(sfml-example sfml-graphics )
+target_link_libraries(sfml-example PRIVATE sfml-graphics )
 target_include_directories(sfml-example PRIVATE "${SFML_INCLUDE_DIR}")
 find_package(OpenMP REQUIRED)
-# target_link_libraries(sfml-example PRIVATE OpenMP::OpenMP_CXX)
-target_link_libraries(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
-target_compile_options(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
+target_link_libraries(sfml-example PRIVATE OpenMP::OpenMP_CXX)
+# target_link_libraries(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
+# target_compile_options(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
 
