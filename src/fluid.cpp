@@ -5,12 +5,11 @@ Fluid::Fluid(float cell_size, int width, int height) : m_cell_size(cell_size), m
     solid = std::vector<float>(m_num_cells, 1.f);
     particle_density = std::vector<float>(m_num_cells, 0.f);
     pressure = std::vector<float>(m_num_cells, 0.f);
-    prev_u = std::vector<float>(m_num_cells, 0.f);
-    prev_v = std::vector<float>(m_num_cells, 0.f);
-    u = std::vector<float>(m_num_cells, 0.f);
-    v = std::vector<float>(m_num_cells, 0.f);
-    u_diff = std::vector<float>(m_num_cells, 0.f);
-    v_diff = std::vector<float>(m_num_cells, 0.f);
+
+    velocities = std::vector<vec2f>(m_num_cells, vec2f(0, 0));
+    prev_velocities = std::vector<vec2f>(m_num_cells, vec2f(0, 0));
+    velocities_diff = std::vector<vec2f>(m_num_cells, vec2f(0, 0));
+
     for(int i = 0; i < m_height; i++) {
         for(int j = 0; j < m_width; j++) {
             if(j == 0 || i == 0 || i == m_height - 1 || j == m_width - 1)
@@ -75,13 +74,10 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
 
     if (toGrid) {
 
-        prev_u = u;
-        prev_v = v;
+        prev_velocities = velocities;
 
-        std::fill(u_diff.begin(), u_diff.end(), 0.f);
-        std::fill(v_diff.begin(), v_diff.end(), 0.f);
-        std::fill(u.begin(), u.end(), 0.f);
-        std::fill(v.begin(), v.end(), 0.f);
+        std::fill(velocities_diff.begin(), velocities_diff.end(), vec2f(0, 0));
+        std::fill(velocities.begin(), velocities.end(), vec2f(0, 0));
 
         for (auto i = 0; i < m_num_cells; i++) 
             cell_type[i] = (solid[i] == 0.0 ? eCellTypes::Solid : eCellTypes::Air);
@@ -102,9 +98,24 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
         auto dx = component == 0 ? 0.0 : h2;
         auto dy = component == 0 ? h2 : 0.0;
 
-        auto& f = (component == 0 ? u : v);
-        auto& prevF = (component == 0 ? prev_u : prev_v);
-        auto& d = (component == 0 ? u_diff : v_diff);
+        auto f = [&](int idx) -> float&{
+            if(component == 0) {
+                return velocities[idx].x;
+            }
+            return velocities[idx].y;
+        };
+        auto prevF = [&](int idx) -> float&{
+            if(component == 0) {
+                return prev_velocities[idx].x;
+            }
+            return prev_velocities[idx].y;
+        };
+        auto d= [&](int idx) -> float&{
+            if(component == 0) {
+                return velocities_diff[idx].x;
+            }
+            return velocities_diff[idx].y;
+        };
 
         for (auto i = 0; i < max_particle_count; i++) {
             auto x = particles.position[i].x;
@@ -138,10 +149,10 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
                 auto pv = particles.velocity[i].x;
                 if(component == 1)
                     pv = particles.velocity[i].y;
-                f[nr0] += pv * d0;  d[nr0] += d0;
-                f[nr1] += pv * d1;  d[nr1] += d1;
-                f[nr2] += pv * d2;  d[nr2] += d2;
-                f[nr3] += pv * d3;  d[nr3] += d3;
+                f(nr0) += pv * d0;  d(nr0) += d0;
+                f(nr1) += pv * d1;  d(nr1) += d1;
+                f(nr2) += pv * d2;  d(nr2) += d2;
+                f(nr3) += pv * d3;  d(nr3) += d3;
             }
             else {
                 auto offset = (component == 0 ? n : 1);
@@ -157,9 +168,9 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
 
                 if (d > 0.0) {
 
-                    auto picV = (valid0 * d0 * f[nr0] + valid1 * d1 * f[nr1] + valid2 * d2 * f[nr2] + valid3 * d3 * f[nr3]) / d;
-                    auto corr = (valid0 * d0 * (f[nr0] - prevF[nr0]) + valid1 * d1 * (f[nr1] - prevF[nr1])
-                        + valid2 * d2 * (f[nr2] - prevF[nr2]) + valid3 * d3 * (f[nr3] - prevF[nr3])) / d;
+                    auto picV = (valid0 * d0 * f(nr0) + valid1 * d1 * f(nr1) + valid2 * d2 * f(nr2) + valid3 * d3 * f(nr3)) / d;
+                    auto corr = (valid0 * d0 * (f(nr0) - prevF(nr0)) + valid1 * d1 * (f(nr1) - prevF(nr1))
+                        + valid2 * d2 * (f(nr2) - prevF(nr2)) + valid3 * d3 * (f(nr3) - prevF(nr3))) / d;
                     auto flipV = v + corr;
 
                     if(component == 0) {
@@ -172,9 +183,9 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
         }
 
         if (toGrid) {
-            for (auto i = 0; i < f.size(); i++) {
-                if (d[i] > 0.0)
-                    f[i] /= d[i];
+            for (auto i = 0; i < velocities.size(); i++) {
+                if (d(i) > 0.0)
+                    f(i) /= d(i);
             }
 
             // restore solid cells
@@ -183,9 +194,9 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
                 for (auto j = 0; j < m_height; j++) {
                     auto solid = (cell_type[i * n + j] == eCellTypes::Solid);
                     if (solid || (i > 0 && cell_type[(i - 1) * n + j] == eCellTypes::Solid))
-                        u[i * n + j] = prev_u[i * n + j];
+                        velocities[i * n + j].x = prev_velocities[i * n + j].x;
                     if (solid || (j > 0 && cell_type[i * n + j - 1] == eCellTypes::Solid))
-                        v[i * n + j] = prev_v[i * n + j];
+                        velocities[i * n + j].y = prev_velocities[i * n + j].y;
                 }
             }
         }
@@ -193,8 +204,7 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
 }
 void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation, bool compensateDrift) {
     std::fill(pressure.begin(), pressure.end(), 0.f);
-    prev_u = u;
-    prev_v = v;
+    prev_velocities = velocities;
 
     auto n = m_height;
     auto cp = density * m_cell_size / dt;
@@ -227,8 +237,8 @@ void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation,
                 if (s == 0.0)
                     continue;
 
-                auto div = u[right] - u[center] + 
-                    v[top] - v[center];
+                auto div = velocities[right].x - velocities[center].x + 
+                    velocities[top].y - velocities[center].y;
 
                 if (particleRestDensity > 0.0 && compensateDrift) {
                     auto k = 1.0;
@@ -241,10 +251,10 @@ void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation,
                 dp *= overRelaxation;
                 pressure[center] += cp * dp;
 
-                u[center] -= sx0 * dp;
-                u[right] += sx1 * dp;
-                v[center] -= sy0 * dp;
-                v[top] += sy1 * dp;
+                velocities[center].x -= sx0 * dp;
+                velocities[right].x += sx1 * dp;
+                velocities[center].y -= sy0 * dp;
+                velocities[top].y += sy1 * dp;
             }
         }
     }

@@ -26,12 +26,9 @@ class Fluid {
     std::vector<eCellTypes> cell_type;
     std::vector<float> solid;
     std::vector<float> pressure;
-    std::vector<float> prev_u;
-    std::vector<float> prev_v;
-    std::vector<float> u;
-    std::vector<float> v;
-    std::vector<float> u_diff;
-    std::vector<float> v_diff;
+    std::vector<vec2f> prev_velocities;
+    std::vector<vec2f> velocities;
+    std::vector<vec2f> velocities_diff;
     std::vector<float> particle_density;
     float particleRestDensity = 0;
 public:
