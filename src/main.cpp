@@ -4,6 +4,7 @@
 #include <SFML/Audio.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
+#include <numeric>
 #include <omp.h>
 #include "fluid.hpp"
 #include "particle.hpp"
@@ -28,7 +29,7 @@ int main() {
 
     auto area = screen_area;
     area.setSize(area.size() * 0.9f);
-    init_random(particles, area, 2.0f);
+    init_random(particles, area, 1.1f);
 
     float total_time = 0;
     Clock deltaClock;
@@ -47,11 +48,11 @@ int main() {
         mouse_pos.y = window.getSize().y - mouse_pos.y;
         vec2f mouse_dir = mouse_pos - last_mouse_pos;
         const float brush_size = 50.f;
-        if(qlen(mouse_dir) != 0) {
+        if(qlen(mouse_dir) != 0 && sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
             for(int i = 0; i < max_particle_count; i++) {
-                auto scalar = length(mouse_dir) * 10000.f;
+                auto scalar = length(mouse_dir) * 100.f;
                 if(length(mouse_pos - particles.position[i]) < brush_size && scalar > 0.f) {
-                    particles.acceleration[i] = normal(mouse_dir) * std::clamp(scalar, 0.f, 100000.f);
+                    particles.velocity[i] = normal(mouse_dir) * std::clamp(scalar, 0.f, 1000.f);
                 }
             }
         }
@@ -61,14 +62,19 @@ int main() {
 
         float solver_time = 0.f;
         float collision_time = 0.f;
-        fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 8, 8, 1.5f, true);
+        fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), 8, 8, 1.9f, true);
+        static std::vector<float> fpss;
+        fpss.push_back(1.f / deltaTime);
         if(report_clock.getElapsedTime() > 1.f) {
             report_clock.restart();
+            auto avg = std::reduce(fpss.begin(), fpss.end());
+            std::cout << "avg fps: " << avg / static_cast<float>(fpss.size()) << "\n";
+            fpss.clear();
         }
 
         window.clear();
         fluid.draw(screen_area, window);
-        // draw(particles, window, Color(70, 70, 250));
+        draw(particles, window, Color(70, 70, 250));
         sf::CircleShape cs(brush_size);
         cs.setOrigin({brush_size, brush_size});
         cs.setPosition(mouse_pos.x, screen_area.size().y - mouse_pos.y);

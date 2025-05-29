@@ -67,15 +67,11 @@ void Fluid::updateParticleDensity(Particles& particles)
 }
 void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particles)
 {
-    auto n = m_height;
-    auto h = m_cell_size;
-    auto h1 = 1.f / m_cell_size;
-    auto h2 = 0.5 * h;
+    auto inv_cell_size = 1.f / m_cell_size;
+    auto half_cell_size = 0.5 * m_cell_size;
 
     if (toGrid) {
-
         prev_velocities = velocities;
-
         std::fill(velocities_diff.begin(), velocities_diff.end(), vec2f(0, 0));
         std::fill(velocities.begin(), velocities.end(), vec2f(0, 0));
 
@@ -85,9 +81,9 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
         for (auto i = 0; i < max_particle_count; i++) {
             auto x = particles.position[i].x;
             auto y = particles.position[i].y;
-            auto xi = /* std::clamp( */floorf(x * h1)/* , 0.f, m_width - 1.f) */;
-            auto yi = /* std::clamp( */floorf(y * h1)/* , 0.f, m_height - 1.f) */;
-            auto cellNr = xi * n + yi;
+            auto xi = /* std::clamp( */floorf(x * inv_cell_size)/* , 0.f, m_width - 1.f) */;
+            auto yi = /* std::clamp( */floorf(y * inv_cell_size)/* , 0.f, m_height - 1.f) */;
+            auto cellNr = xi * m_height + yi;
             if (cell_type[cellNr] == eCellTypes::Air)
                 cell_type[cellNr] = eCellTypes::Fluid;
         }
@@ -95,22 +91,22 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
 
     for (auto component = 0; component < 2; component++) {
 
-        auto dx = component == 0 ? 0.0 : h2;
-        auto dy = component == 0 ? h2 : 0.0;
+        auto offset_x = component == 0 ? 0.0 : half_cell_size;
+        auto offset_y = component == 0 ? half_cell_size : 0.0;
 
-        auto f = [&](int idx) -> float&{
+        auto vel = [&](int idx) -> float&{
             if(component == 0) {
                 return velocities[idx].x;
             }
             return velocities[idx].y;
         };
-        auto prevF = [&](int idx) -> float&{
+        auto prev_vel = [&](int idx) -> float&{
             if(component == 0) {
                 return prev_velocities[idx].x;
             }
             return prev_velocities[idx].y;
         };
-        auto d= [&](int idx) -> float&{
+        auto diff= [&](int idx) -> float&{
             if(component == 0) {
                 return velocities_diff[idx].x;
             }
@@ -124,42 +120,43 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
             // x = std::clamp(x, h, (m_width - 1) * h);
             // y = std::clamp(y, h, (m_height - 1) * h);
 
-            auto x0 = fmin(floorf((x - dx) * h1), m_width - 2);
-            auto tx = ((x - dx) - x0 * h) * h1;
+            auto x0 = fmin(floorf((x - offset_x) * inv_cell_size), m_width - 2);
+            auto share0_x = ((x - offset_x) - x0 * m_cell_size) * inv_cell_size;
             auto x1 = fmin(x0 + 1, m_width-2);
             
-            auto y0 = fmin(floorf((y-dy)*h1), m_height-2);
-            auto ty = ((y - dy) - y0*h) * h1;
+            auto y0 = fmin(floorf((y-offset_y)*inv_cell_size), m_height-2);
+            auto share0_y = ((y - offset_y) - y0*m_cell_size) * inv_cell_size;
             auto y1 = fmin(y0 + 1, m_height-2);
 
-            auto sx = 1.0 - tx;
-            auto sy = 1.0 - ty;
+            auto share1_x = 1.0 - share0_x;
+            auto share1_y = 1.0 - share0_y;
 
-            auto d0 = sx*sy;
-            auto d1 = tx*sy;
-            auto d2 = tx*ty;
-            auto d3 = sx*ty;
+            auto d0 = share1_x*share1_y;
+            auto d1 = share0_x*share1_y;
+            auto d2 = share0_x*share0_y;
+            auto d3 = share1_x*share0_y;
 
-            auto nr0 = x0*n + y0;
-            auto nr1 = x1*n + y0;
-            auto nr2 = x1*n + y1;
-            auto nr3 = x0*n + y1;
+            auto bl = x0*m_height + y0;
+            auto br = x1*m_height + y0;
+            auto tr = x1*m_height + y1;
+            auto tl = x0*m_height + y1;
 
             if (toGrid) {
+                //transfering weighted velocity
                 auto pv = particles.velocity[i].x;
                 if(component == 1)
                     pv = particles.velocity[i].y;
-                f(nr0) += pv * d0;  d(nr0) += d0;
-                f(nr1) += pv * d1;  d(nr1) += d1;
-                f(nr2) += pv * d2;  d(nr2) += d2;
-                f(nr3) += pv * d3;  d(nr3) += d3;
+                vel(bl) += pv * d0;  diff(bl) += d0;
+                vel(br) += pv * d1;  diff(br) += d1;
+                vel(tr) += pv * d2;  diff(tr) += d2;
+                vel(tl) += pv * d3;  diff(tl) += d3;
             }
             else {
-                auto offset = (component == 0 ? n : 1);
-                auto valid0 = cell_type[nr0] != eCellTypes::Air || cell_type[nr0 - offset] != eCellTypes::Air ? 1.0 : 0.0;
-                auto valid1 = cell_type[nr1] != eCellTypes::Air || cell_type[nr1 - offset] != eCellTypes::Air ? 1.0 : 0.0;
-                auto valid2 = cell_type[nr2] != eCellTypes::Air || cell_type[nr2 - offset] != eCellTypes::Air ? 1.0 : 0.0;
-                auto valid3 = cell_type[nr3] != eCellTypes::Air || cell_type[nr3 - offset] != eCellTypes::Air ? 1.0 : 0.0;
+                auto offset = (component == 0 ? m_height : 1);
+                auto valid0 = cell_type[bl] != eCellTypes::Air || cell_type[bl - offset] != eCellTypes::Air ? 1.0 : 0.0;
+                auto valid1 = cell_type[br] != eCellTypes::Air || cell_type[br - offset] != eCellTypes::Air ? 1.0 : 0.0;
+                auto valid2 = cell_type[tr] != eCellTypes::Air || cell_type[tr - offset] != eCellTypes::Air ? 1.0 : 0.0;
+                auto valid3 = cell_type[tl] != eCellTypes::Air || cell_type[tl - offset] != eCellTypes::Air ? 1.0 : 0.0;
 
                 auto v = particles.velocity[i].x;
                 if(component == 1) 
@@ -168,9 +165,9 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
 
                 if (d > 0.0) {
 
-                    auto picV = (valid0 * d0 * f(nr0) + valid1 * d1 * f(nr1) + valid2 * d2 * f(nr2) + valid3 * d3 * f(nr3)) / d;
-                    auto corr = (valid0 * d0 * (f(nr0) - prevF(nr0)) + valid1 * d1 * (f(nr1) - prevF(nr1))
-                        + valid2 * d2 * (f(nr2) - prevF(nr2)) + valid3 * d3 * (f(nr3) - prevF(nr3))) / d;
+                    auto picV = (valid0 * d0 * vel(bl) + valid1 * d1 * vel(br) + valid2 * d2 * vel(tr) + valid3 * d3 * vel(tl)) / d;
+                    auto corr = (valid0 * d0 * (vel(bl) - prev_vel(bl)) + valid1 * d1 * (vel(br) - prev_vel(br))
+                        + valid2 * d2 * (vel(tr) - prev_vel(tr)) + valid3 * d3 * (vel(tl) - prev_vel(tl))) / d;
                     auto flipV = v + corr;
 
                     if(component == 0) {
@@ -181,22 +178,18 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
                 }
             }
         }
-
         if (toGrid) {
             for (auto i = 0; i < velocities.size(); i++) {
-                if (d(i) > 0.0)
-                    f(i) /= d(i);
+                if (diff(i) > 0.0)
+                    vel(i) /= diff(i);
             }
-
-            // restore solid cells
-
             for (auto i = 0; i < m_width; i++) {
                 for (auto j = 0; j < m_height; j++) {
-                    auto solid = (cell_type[i * n + j] == eCellTypes::Solid);
-                    if (solid || (i > 0 && cell_type[(i - 1) * n + j] == eCellTypes::Solid))
-                        velocities[i * n + j].x = prev_velocities[i * n + j].x;
-                    if (solid || (j > 0 && cell_type[i * n + j - 1] == eCellTypes::Solid))
-                        velocities[i * n + j].y = prev_velocities[i * n + j].y;
+                    auto solid = (cell_type[i * m_height + j] == eCellTypes::Solid);
+                    if (solid || (i > 0 && cell_type[(i - 1) * m_height + j] == eCellTypes::Solid))
+                        velocities[i * m_height + j].x = prev_velocities[i * m_height + j].x;
+                    if (solid || (j > 0 && cell_type[i * m_height + j - 1] == eCellTypes::Solid))
+                        velocities[i * m_height + j].y = prev_velocities[i * m_height + j].y;
                 }
             }
         }
