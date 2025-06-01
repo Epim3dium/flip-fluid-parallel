@@ -21,13 +21,12 @@ int main() {
     float h = 720;
     AABB screen_area = AABB::CreateMinSize({0, 0}, {w, h});
     RenderWindow window(VideoMode(w, h), "demo");
-    window.setFramerateLimit(60);
     Particles particles;
     auto fluid_cell_size = particles.diameter * 2.f;
     auto fluid_size = sf::Vector2<int>(screen_area.size() / fluid_cell_size);
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
-    int numParticleIters = 16;
+    int numParticleIters = 32;
     int numFluidIters = 16;
     float overrelaxation = 1.9f;
     auto area = screen_area;
@@ -111,7 +110,7 @@ int main() {
 
         window.clear();
         fluid.draw(screen_area, window);
-        draw(particles, window, Color(70, 70, 250));
+        // draw(particles, window, Color(70, 70, 250));
         sf::CircleShape cs(brush_size);
         cs.setOrigin({brush_size, brush_size});
         cs.setPosition(mouse_pos.x, screen_area.size().y - mouse_pos.y);

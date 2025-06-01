@@ -1,16 +1,4 @@
-set(SFML_VERSION "3.0.0")
-set(SFML_BUILD_EXAMPLES OFF CACHE BOOL "Disable SFML examples")
-
-include(FetchContent)
-
-set(SFML_VERSION 2.6.x)
-FetchContent_Declare(
-  SFML
-  URL "https://github.com/SFML/SFML/archive/${SFML_VERSION}.zip"
-)
-
-## finally, let's build
-FetchContent_MakeAvailable(sfml)
+find_package(SFML 2.5.1 COMPONENTS system window graphics network audio REQUIRED)
 
 
 
@@ -28,14 +16,17 @@ set(HEADER_FILES
     free_list.hpp
     fluid.hpp
 )
-add_executable(sfml-example
+add_executable(fluid-sim
     ${SOURCE_FILES} ${HEADER_FILES}
 )
+target_link_libraries(fluid-sim
+  PUBLIC  sfml-graphics sfml-window sfml-system
+)
 
-target_link_libraries(sfml-example PRIVATE sfml-graphics )
-target_include_directories(sfml-example PRIVATE "${SFML_INCLUDE_DIR}")
+target_link_libraries(fluid-sim PRIVATE sfml-graphics )
+target_include_directories(fluid-sim PRIVATE "${SFML_INCLUDE_DIR}")
 find_package(OpenMP REQUIRED)
-target_link_libraries(sfml-example PRIVATE OpenMP::OpenMP_CXX)
-# target_link_libraries(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
-# target_compile_options(sfml-example PRIVATE "${OpenMP_CXX_FLAGS}")
+target_link_libraries(fluid-sim PRIVATE OpenMP::OpenMP_CXX)
+# target_link_libraries(fluid-sim PRIVATE "${OpenMP_CXX_FLAGS}")
+# target_compile_options(fluid-sim PRIVATE "${OpenMP_CXX_FLAGS}")
 

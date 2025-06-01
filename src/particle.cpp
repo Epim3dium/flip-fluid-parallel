@@ -137,12 +137,12 @@ void constraint(Particles& particles, AABB area) {
     }
 }
 void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
-    sf::CircleShape circ;
-    auto rad = particles.radius;
-    circ.setRadius(rad);
-    circ.setOrigin(rad, rad);
-    circ.setPointCount(16U);
     for(int i = 0; i < max_particle_count; i++) { 
+        sf::CircleShape circ;
+        auto rad = particles.radius;
+        circ.setRadius(rad);
+        circ.setOrigin(rad, rad);
+        circ.setPointCount(16U);
         circ.setPosition(particles.position[i].x, window.getSize().y - particles.position[i].y);
         circ.setFillColor(color);
         window.draw(circ);
