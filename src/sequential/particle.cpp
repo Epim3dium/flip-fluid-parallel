@@ -58,10 +58,8 @@ typedef std::vector<uint32_t> CompactVec;
 void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_rows, const std::vector<CompactVec>& grid) {
     auto& comp_vec1 = grid[row*max_segs_rows + col];
     if(comp_vec1.size() == 0) return;
-    std::vector<const CompactVec*> comp_vecs;
-    for(auto dir : {std::pair{1, 0}, {0, 1}, {1, 1}, {1, -1}}) {
-        comp_vecs.push_back(&grid[(row+dir.first) * max_segs_rows + col+dir.second]);
-    }
+    #define offset_grid(dirx, diry) &grid[(row+dirx) * max_segs_rows + col+diry]
+    std::array<const CompactVec*, 4U> comp_vecs = {offset_grid(1, 0), offset_grid(0, 1), offset_grid(1, 1),offset_grid(1,-1)};
 
     for(int i = 0; i < comp_vec1.size(); i++) {
         auto idx1 = comp_vec1[i];

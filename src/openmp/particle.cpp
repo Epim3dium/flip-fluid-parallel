@@ -38,9 +38,10 @@ void resolveVelocities(Particles& particles, int p1, int p2, vec2f normal) {
 void processCollision(Particles& particles, int i, int ii) {
     auto diff = particles.position[ii] - particles.position[i];
     const float min_dist = particles.radius * 2;
-    if(qlen(diff) < min_dist * min_dist && qlen(diff) > 1e-10f) {
+    auto ql = qlen(diff);
+    if(ql < min_dist * min_dist && ql > 1e-10f) {
         auto l = length(diff);
-        auto n = normal(diff);
+        auto n = diff / l;
         static const float damping = 0.7f;
         auto c = (min_dist - l) * 0.5f * damping;
         particles.position[i] -= n * c;
@@ -60,10 +61,8 @@ typedef std::vector<uint32_t> CompactVec;
 void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_rows, const std::vector<CompactVec>& grid) {
     auto& comp_vec1 = grid[row*max_segs_rows + col];
     if(comp_vec1.size() == 0) return;
-    std::vector<const CompactVec*> comp_vecs;
-    for(auto dir : {std::pair{1, 0}, {0, 1}, {1, 1}, {1, -1}}) {
-        comp_vecs.push_back(&grid[(row+dir.first) * max_segs_rows + col+dir.second]);
-    }
+    #define offset_grid(dirx, diry) &grid[(row+dirx) * max_segs_rows + col+diry]
+    std::array<const CompactVec*, 4U> comp_vecs = {offset_grid(1, 0), offset_grid(0, 1), offset_grid(1, 1),offset_grid(1,-1)};
 
     for(int i = 0; i < comp_vec1.size(); i++) {
         auto idx1 = comp_vec1[i];
@@ -103,14 +102,12 @@ void collide(Particles& particles, AABB sim_area) {
     }
 
     for(int i = 0; i < 4; i++) {
-        const auto& active = active_containers[i];
-        auto it = active.begin();
+        std::vector<uint32_t> active(active_containers[i].begin(),active_containers[i].end());
         #pragma omp parallel for
         for(int i = 0; i < active.size(); i++) {
-            auto row = *it / max_dim;
-            auto col = *it % max_dim;
+            auto row = active[i] / max_dim;
+            auto col = active[i] % max_dim;
             compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
-            it++;
         }
     }
 
