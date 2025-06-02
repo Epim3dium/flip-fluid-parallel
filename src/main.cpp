@@ -22,7 +22,7 @@ int main() {
     AABB screen_area = AABB::CreateMinSize({0, 0}, {w, h});
     RenderWindow window(VideoMode(w, h), "demo");
     Particles particles;
-    auto fluid_cell_size = particles.diameter * 2.f;
+    auto fluid_cell_size = particles.diameter * 3.f;
     auto fluid_size = sf::Vector2<int>(screen_area.size() / fluid_cell_size);
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
@@ -31,7 +31,7 @@ int main() {
     float overrelaxation = 1.9f;
     auto area = screen_area;
     area.setSize(area.size() * 0.9f);
-    init_random(particles, area, 1.1f);
+    init_random(particles, area, 1.5f);
 
     std::cout << "{\n";
     auto dispNameValue = [&](std::string name, auto value, bool isLast = false) {
@@ -49,6 +49,7 @@ int main() {
 
     float total_time = 0;
     Clock deltaClock;
+    bool shouldReport = false;
     Stopwatch report_clock;
     report_clock.restart();
     while (window.isOpen()) {
@@ -83,7 +84,7 @@ int main() {
         col_times.push_back(col);
         fluid_times.push_back(fl);
         fpss.push_back(1.f / deltaTime);
-        if(report_clock.getElapsedTime() > 1.f) {
+        if(report_clock.getElapsedTime() > 1.f && shouldReport) {
             static bool displayed = false;
             std::cout << "\t\t";
             if(displayed) {
@@ -109,8 +110,27 @@ int main() {
         }
 
         window.clear();
-        fluid.draw(screen_area, window);
-        // draw(particles, window, Color(70, 70, 250));
+        static bool drawParticles = true;
+        static bool drawGrid= true;
+        static bool pressed = 0;
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
+            if(!pressed) {
+                drawParticles = !drawParticles ;
+            }
+            pressed = true;
+        }else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::G)) {
+            if(!pressed) {
+                drawGrid = !drawGrid;
+            }
+            pressed = true;
+        }else {
+            pressed = false;
+        }
+
+        if(drawGrid)
+            fluid.draw(screen_area, window);
+        if(drawParticles)
+            draw(particles, window, Color(70, 70, 250));
         sf::CircleShape cs(brush_size);
         cs.setOrigin({brush_size, brush_size});
         cs.setPosition(mouse_pos.x, screen_area.size().y - mouse_pos.y);
