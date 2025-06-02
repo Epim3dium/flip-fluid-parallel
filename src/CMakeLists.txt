@@ -1,11 +1,14 @@
 find_package(SFML 2.5.1 COMPONENTS system window graphics network audio REQUIRED)
 
+set(USE_SEQ "seq")
+set(USE_OPENMP "omp")
+set(USE_CUDA "cuda")
 
-option(USE_SEQ "Use sequential backend" OFF)
-option(USE_OPENMP "Use OpenMP backend" ON)
-option(USE_CUDA "Use CUDA backend" OFF)
+set(BUILD_TYPE ${USE_OPENMP})
+
 set(SEQ_DIR "./sequential")
 set(OPENMP_DIR "./openmp")
+
 
 set(SOURCE_FILES
     main.cpp
@@ -34,12 +37,14 @@ set(OPENMP_HEADER_FILES
     openmp/fluid.hpp
     openmp/particle.hpp
 )
-if(${USE_SEQ})
+if("${BUILD_TYPE}" STREQUAL "${USE_SEQ}")
+    message(STATUS "Using sequential code")
     add_executable(fluid-sim
         ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
     )
     target_include_directories(fluid-sim PRIVATE ${SEQ_DIR})
-elseif(${USE_OPENMP})
+elseif("${BUILD_TYPE}" STREQUAL "${USE_OPENMP}")
+    message(STATUS "Using openMP code")
     add_executable(fluid-sim
         ${SOURCE_FILES} ${HEADER_FILES} ${OPENMP_SOURCE_FILES} ${OPENMP_HEADER_FILES}
     )
