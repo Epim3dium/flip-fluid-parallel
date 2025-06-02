@@ -1,24 +1,35 @@
 find_package(SFML 2.5.1 COMPONENTS system window graphics network audio REQUIRED)
 
 
+option(USE_SEQ "Use sequential backend" ON)
+option(USE_OPENMP "Use OpenMP backend" OFF)
+option(USE_CUDA "Use CUDA backend" OFF)
+set(SEQ_DIR "./sequential")
 
 set(SOURCE_FILES
     main.cpp
     geometry_func.cpp
-    fluid.cpp
 )
 set(HEADER_FILES
     geometry_func.hpp
     circle.hpp
     AABB.hpp
-    particle.hpp
-    particle.cpp
     free_list.hpp
-    fluid.hpp
 )
-add_executable(fluid-sim
-    ${SOURCE_FILES} ${HEADER_FILES}
+set(SEQ_SOURCE_FILES
+    sequential/fluid.cpp
+    sequential/particle.cpp
 )
+set(SEQ_HEADER_FILES
+    sequential/fluid.hpp
+    sequential/particle.hpp
+)
+if(${USE_SEQ})
+    add_executable(fluid-sim
+        ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim PRIVATE ${SEQ_DIR})
+endif()
 target_link_libraries(fluid-sim
   PUBLIC  sfml-graphics sfml-window sfml-system
 )
