@@ -11,11 +11,13 @@
 #include <omp.h>
 
 void accelerate(Particles& particles, vec2f gravity) {
+    #pragma omp parallel for
     for(int i = 0; i < max_particle_count; i++) {
         particles.acceleration[i] += gravity;
     }
 }
 void integrate(Particles& particles, float dt) {
+    #pragma omp parallel for
     for(int i = 0; i < max_particle_count; i++) {
         particles.velocity[i] += particles.acceleration[i] * dt;
         particles.position[i] += particles.velocity[i] * dt;
@@ -86,7 +88,7 @@ void collide(Particles& particles, AABB sim_area) {
         col_grid = std::vector<CompactVec>(max_segs_rows*max_segs_cols);
     }
     auto max_dim = std::max(max_segs_cols, max_segs_rows);
-    std::unordered_set<uint32_t> active_containers;
+    std::unordered_set<uint32_t> active_containers[4];
     int counter = 0;
     for(int i = 0; i < max_particle_count; i++) {
         uint32_t col = (particles.position[i].x - sim_area.min.x) / particles.diameter;
@@ -97,23 +99,32 @@ void collide(Particles& particles, AABB sim_area) {
         }
         auto& comp_vec = col_grid[(row+1) * max_segs_rows + col+1];
         comp_vec.push_back(i);
-        active_containers.insert((row+1) * max_dim + col+1);
+        active_containers[(row % 2)*2 + col%2].insert((row+1) * max_dim + col+1);
     }
 
-    for(auto i : active_containers) {
-        auto row = i / max_dim;
-        auto col = i % max_dim;
-        compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
+    for(int i = 0; i < 4; i++) {
+        const auto& active = active_containers[i];
+        auto it = active.begin();
+        #pragma omp parallel for
+        for(int i = 0; i < active.size(); i++) {
+            auto row = *it / max_dim;
+            auto col = *it % max_dim;
+            compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
+            it++;
+        }
     }
 
-    for(auto container : active_containers) {
-        auto row = container / max_dim;
-        auto col = container % max_dim;
-        col_grid[row * max_segs_rows + col].clear();
+    for(int i = 0; i < 4; i++) {
+        for(auto container : active_containers[i]) {
+            auto row = container / max_dim;
+            auto col = container % max_dim;
+            col_grid[row * max_segs_rows + col].clear();
+        }
     }
 
 }
 void constraint(Particles& particles, AABB area) {
+    #pragma omp parallel for
     for(int i = 0; i < max_particle_count; i++) {
         if(!isOverlappingPointAABB(particles.position[i], area)) {
             if(particles.position[i].x > area.max.x || particles.position[i].x < area.min.x)
