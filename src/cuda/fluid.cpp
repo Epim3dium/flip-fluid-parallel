@@ -1,4 +1,5 @@
 #include "fluid.hpp"
+#include "particle.hpp"
 #include "time.hpp"
 Fluid::Fluid(float cell_size, int width, int height) : m_cell_size(cell_size), m_width(width), m_height(height), m_num_cells(width * height){
     cell_color = std::vector<Color>(m_num_cells);
@@ -264,15 +265,18 @@ std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area
     float fluid_time = 0.f;
     for (int step = 0; step < numSubSteps; step++) {
         Stopwatch local_stop;
-        for(int i = 0; i < numParticleIters; i++) {
-            accelerate(particles, gravity);
-            bench["particles::accelerate"] += local_stop.restart();
-            integrate(particles, sdt / (float)numParticleIters);
-            bench["particles::integrate"] += local_stop.restart();
-            constraint(particles, sim_area);
-            bench["particles::constraint"] += local_stop.restart();
-            collide(particles, sim_area);
-            bench["particles::collide"] += local_stop.restart();
+        {
+            ParticleSolveBlock solv(particles);
+            for(int i = 0; i < numParticleIters; i++) {
+                accelerate(particles, gravity);
+                bench["particles::accelerate"] += local_stop.restart();
+                integrate(particles, sdt / (float)numParticleIters);
+                bench["particles::integrate"] += local_stop.restart();
+                constraint(particles, sim_area);
+                bench["particles::constraint"] += local_stop.restart();
+                collide(particles, sim_area);
+                bench["particles::collide"] += local_stop.restart();
+            }
         }
         local_stop.restart();
         transferVelocities(true, 1.f, particles);

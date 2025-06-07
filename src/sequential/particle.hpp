@@ -11,6 +11,11 @@ struct Particles {
     vec2f velocity[max_particle_count];
     vec2f acceleration[max_particle_count];
 };
+struct ParticleSolveBlock {
+    Particles& particles;
+    ParticleSolveBlock(Particles& p) : particles(p) {}
+    ~ParticleSolveBlock() {}
+};
 void derive(Particles& particles, float dt);
 void accelerate(Particles& particles, vec2f gravity);
 void integrate(Particles& particles, float dt);

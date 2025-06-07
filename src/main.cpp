@@ -25,12 +25,12 @@ int main() {
     area.setSize(area.size() * 0.9f);
     init(particles, area, 1.5f);
 
-    auto fluid_cell_size = particles.diameter * 2.f;
+    auto fluid_cell_size = particles.diameter * 3.f;
     auto fluid_size = screen_area.size() / fluid_cell_size;
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
     int numParticleIters = 32;
-    int numFluidIters = 16;
+    int numFluidIters = 64;
     float overrelaxation = 1.9f;
 
     std::cout << "{\n";
