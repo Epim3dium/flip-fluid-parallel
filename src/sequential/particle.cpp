@@ -124,9 +124,7 @@ void constraint(Particles& particles, AABB area) {
     }
 }
 void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
-    const uint32_t max_draw_count = 2500U;
-    uint32_t sieve = std::max(max_particle_count / max_draw_count, 1U);
-    for(int i = 0; i < max_particle_count; i += sieve) { 
+    for(int i = 0; i < max_particle_count; i += 1) { 
         sf::CircleShape circ;
         auto rad = particles.radius;
         circ.setRadius(rad);

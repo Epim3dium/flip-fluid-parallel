@@ -3,7 +3,7 @@
 #include "circle.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <cstdint>
-static constexpr uint32_t max_particle_count = 5000;
+static constexpr uint32_t max_particle_count = 3000;
 struct Particles {
     static constexpr float radius = 3.f;
     static constexpr float diameter = radius*2;
