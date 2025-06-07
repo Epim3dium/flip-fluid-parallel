@@ -22,8 +22,8 @@ int main() {
     AABB screen_area = AABB::CreateMinSize({0, 0}, {w, h});
     RenderWindow window(VideoMode(w, h), "demo");
     Particles particles;
-    auto fluid_cell_size = particles.diameter * 3.f;
-    auto fluid_size = sf::Vector2<int>(screen_area.size() / fluid_cell_size);
+    auto fluid_cell_size = particles.diameter * 2.f;
+    auto fluid_size = screen_area.size() / fluid_cell_size;
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
     int numParticleIters = 32;
@@ -49,7 +49,7 @@ int main() {
 
     float total_time = 0;
     Clock deltaClock;
-    bool shouldReport = false;
+    bool shouldReport = true;
     Stopwatch report_clock;
     report_clock.restart();
     while (window.isOpen()) {
@@ -61,7 +61,8 @@ int main() {
             }
         }
         static vec2f last_mouse_pos;
-        vec2f mouse_pos  = (vec2f)sf::Mouse().getPosition(window);
+        auto posi = sf::Mouse().getPosition(window);
+        vec2f mouse_pos  = {(float)posi.x, (float)posi.y};
         mouse_pos.y = window.getSize().y - mouse_pos.y;
         vec2f mouse_dir = mouse_pos - last_mouse_pos;
         const float brush_size = 50.f;
@@ -110,7 +111,7 @@ int main() {
         }
 
         window.clear();
-        static bool drawParticles = true;
+        static bool drawParticles = false;
         static bool drawGrid= true;
         static bool pressed = 0;
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {

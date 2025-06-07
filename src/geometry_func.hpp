@@ -3,19 +3,9 @@
 #include <vector>
 #include "AABB.hpp"
 #include "circle.hpp"
+#include "vec2.hpp"
 
 
-float angleAround(vec2f a, vec2f pivot, vec2f b);
-vec2f sign(vec2f x);
-vec2f rotateVec(vec2f vec, float angle);
-float qlen(vec2f v);
-float angle(vec2f a, vec2f b);
-vec2f rotate(vec2f vec, float angle);
-float length(vec2f v);
-float dot(vec2f a, vec2f b);
-vec2f normal(vec2f v);
-vec2f proj(vec2f a, vec2f plane_norm);
-float perp_dot(vec2f a, vec2f b);
 // returns true if r1 contains the whole of r2
 bool AABBcontainsAABB(const AABB& r1, const AABB& r2);
 // finds the closest vector to point that lies on ray

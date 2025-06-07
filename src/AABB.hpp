@@ -3,8 +3,8 @@
 
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/System/Vector2.hpp>
-typedef sf::Vector2f vec2f;
 typedef sf::Color Color;
+#include "vec2.hpp"
 #include <concepts>
 #include <limits>
 #include <cmath>
