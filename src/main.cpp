@@ -5,7 +5,6 @@
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
 #include <numeric>
-#include <omp.h>
 #include "fluid.hpp"
 #include "particle.hpp"
 #include "geometry_func.hpp"
@@ -79,13 +78,9 @@ int main() {
         float deltaTime = deltaClock.restart().asSeconds();
         total_time += deltaTime;
 
-        static std::vector<float> fpss;
-        static std::vector<float> col_times;
-        static std::vector<float> fluid_times;
-        auto [col, fl] = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, true);
-        col_times.push_back(col);
-        fluid_times.push_back(fl);
-        fpss.push_back(1.f / deltaTime);
+        static std::vector<std::map<std::string, float>> times;
+        auto cur_times = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, true);
+        times.push_back(cur_times);
         if(report_clock.getElapsedTime() > 1.f && shouldReport) {
             static bool displayed = false;
             std::cout << "\t\t";
@@ -95,20 +90,29 @@ int main() {
             displayed = true;
             std::cout << "{\n";
             report_clock.restart();
-            auto displayAvg = [&](std::string name, auto& array, bool isLast = false) {
-                auto avg = std::reduce(array.begin(), array.end()) / (float)array.size();
-                std::cout << "\t\t\t\"" << name << "\" : \"" << avg << "\"";
-                if(!isLast)
-                    std::cout << ",";
-                std::cout << "\n";
+            auto displayAvg = [&](std::string name, auto& vec_table) {
+                float sum = 0.f;
+                for(auto& tab : vec_table) {
+                    sum += tab[name];
+                }
+                auto avg = sum / vec_table.size();
+                std::cout << "\"" << name << "\" : \"" << avg << "\"";
             };
-            displayAvg("FPS", fpss);
-            displayAvg("particle time", col_times);
-            displayAvg("fluid time", fluid_times, true);
+            for(auto [name, val] : times.front()) {
+                std::cout << "\t\t\t";
+                displayAvg(name, times);
+                std::cout << ",\n";
+            }
+            float sum = 0.f;
+            for(const auto& v : times) {
+                for(auto [name, val] : v)
+                    sum += val;
+            }
+            float avg = sum / times.size();
+            std::cout << "\t\t\t\"FPS\" : \"" << 1.f/avg << "\"";
+            std::cout << ",\n";
+
             std::cout << "\t\t}\n";
-            fpss.clear();
-            col_times.clear();
-            fluid_times.clear();
         }
 
         window.clear();
@@ -143,6 +147,7 @@ int main() {
         window.display();
         last_mouse_pos = mouse_pos;
     }
+    cleanup(particles);
     std::cout << "\t]\n}\n";
 
     return 0;
