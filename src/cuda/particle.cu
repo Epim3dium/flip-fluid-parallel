@@ -1,5 +1,6 @@
 #include "particle.hpp"
 #include "geometry_func.hpp"
+#include <device_atomic_functions.h>
 #include "vec2.hpp"
 #include "AABB.hpp"
 #include <SFML/Graphics/CircleShape.hpp>
@@ -96,7 +97,7 @@ void collide(Particles& particles) {
 }
 struct CompactVec {
     uint32_t data[32];
-    uint16_t size = 0;
+    uint32_t size = 0;
 };
 
 __global__ void compareWithNeighbours(Particles& particles, uint32_t* active, uint32_t active_size, int max_segs_cols, const CompactVec* grid) {
@@ -124,16 +125,56 @@ __global__ void compareWithNeighbours(Particles& particles, uint32_t* active, ui
         }
     }
 }
+__global__ void assignParticlesToGrid(
+    float2* positions,
+    CompactVec* col_grid,
+    int max_particle_count,
+    float2 sim_area_min,
+    float diameter,
+    int max_segs_cols,
+    int max_segs_rows,
+    int* active_flags // Flattened grid of flags (per cell)
+) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= max_particle_count) return;
+
+    float2 pos = positions[i];
+    uint32_t col = (pos.x - sim_area_min.x) / diameter;
+    uint32_t row = (pos.y - sim_area_min.y) / diameter;
+
+    if (col + 1 >= max_segs_cols || row + 1 >= max_segs_rows) return;
+
+    int grid_idx = (row + 1) * max_segs_cols + (col + 1);
+    CompactVec& comp_vec = col_grid[grid_idx];
+
+    // Atomically get index to write into comp_vec
+    uint32_t insert_idx = atomicAdd(&comp_vec.size, 1);
+    if (insert_idx < 32) {
+        comp_vec.data[insert_idx] = i;
+    }
+
+    // Atomically mark active cell (using a 1D grid of flags)
+    atomicExch(&active_flags[grid_idx], 1);
+}
 void collide(Particles& particles, AABB sim_area) {
     const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
     const uint32_t max_segs_rows = sim_area.size().y / particles.diameter + 1 + 2;
-    static int col_grid_size;
+
+    static int col_grid_size = 0;
     static CompactVec* col_grid = nullptr;
+    static CompactVec* gpu_col_grid = nullptr;
+    static uint32_t* active_idxs = nullptr;
 
     if(col_grid_size != max_segs_rows * max_segs_cols) {
-        if(col_grid_size != 0)
-            cudaFree(col_grid);
-        CUDA_CALL(cudaMallocManaged(&col_grid, sizeof(CompactVec) * max_segs_rows * max_segs_cols));
+        if(col_grid_size != 0) {
+            cudaFreeHost(col_grid);
+            cudaFree(gpu_col_grid);
+            cudaFree(active_idxs);
+        }
+        col_grid_size = max_segs_rows * max_segs_cols;
+        CUDA_CALL(cudaMalloc(&active_idxs, sizeof(uint32_t) * max_segs_rows * max_segs_cols));
+        CUDA_CALL(cudaMallocHost(&col_grid, sizeof(CompactVec) * max_segs_rows * max_segs_cols));
+        CUDA_CALL(cudaMalloc(&gpu_col_grid, sizeof(CompactVec) * max_segs_rows * max_segs_cols));
     }
     std::unordered_set<uint32_t> active_containers[4];
     int counter = 0;
@@ -149,23 +190,18 @@ void collide(Particles& particles, AABB sim_area) {
         active_containers[(row % 2)*2 + col%2].insert((row+1) * max_segs_cols + col+1);
     }
 
+    CUDA_CALL(cudaMemcpy(gpu_col_grid, col_grid, sizeof(CompactVec) * col_grid_size, cudaMemcpyHostToDevice));
+
     CUDA_CALL(cudaMemcpy(particles.gpu_velocity, particles.velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
     CUDA_CALL(cudaMemcpy(particles.gpu_position, particles.position, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
     CUDA_CALL(cudaMemcpy(particles.gpu_acceleration, particles.acceleration, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
-    size_t max_size = 0;
-    for(const auto& v : active_containers)
-        max_size = std::max(v.size(), max_size);
-
-    uint32_t* active_idxs;
-    CUDA_CALL(cudaMalloc(&active_idxs, sizeof(uint32_t) * max_size));
     for(int i = 0; i < 4; i++) {
         std::vector<uint32_t> active(active_containers[i].begin(),active_containers[i].end());
         CUDA_CALL(cudaMemcpy(active_idxs, active.data(), sizeof(uint32_t) * active.size(), cudaMemcpyHostToDevice));
         auto N = active.size();
-        compareWithNeighbours<<<(N + 255) / 256, 256>>>(particles, active_idxs, N, max_segs_cols, col_grid);
+        compareWithNeighbours<<<(N + 1024) / 1024, 1024>>>(particles, active_idxs, N, max_segs_cols, gpu_col_grid);
         cudaDeviceSynchronize();
     }
-    CUDA_CALL(cudaFree(active_idxs));
     CUDA_CALL(cudaMemcpy(particles.velocity, particles.gpu_velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
     CUDA_CALL(cudaMemcpy(particles.position, particles.gpu_position, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
     CUDA_CALL(cudaMemcpy(particles.acceleration, particles.gpu_acceleration, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
@@ -208,5 +244,13 @@ void init(Particles& particles, AABB screen_area, float spacing, int seed) {
         particles.velocity[i] =  {0, 0};
         particles.acceleration[i] = {0, 0};
     }
+}
+void cleanup(Particles& particles) {
+    CUDA_CALL(cudaFreeHost(particles.position));
+    CUDA_CALL(cudaFree(particles.gpu_position));
+    CUDA_CALL(cudaFreeHost(particles.acceleration));
+    CUDA_CALL(cudaFree(particles.gpu_acceleration));
+    CUDA_CALL(cudaFreeHost(particles.velocity));
+    CUDA_CALL(cudaFree(particles.gpu_velocity));
 }
 
