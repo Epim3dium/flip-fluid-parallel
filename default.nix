@@ -24,6 +24,9 @@ mkShell {
         cudaPackages.cuda_nvcc
         cudaPackages.cuda_cccl
         cudaPackages.cudatoolkit
+        cudaPackages.cuda_nvprof
+        cudaPackages.nsight_compute
+        cudaPackages.cuda_nvvp
         linuxPackages.nvidia_x11
         gcc12
         libGLU libGL
