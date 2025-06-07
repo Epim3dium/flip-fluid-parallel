@@ -10,9 +10,13 @@ static constexpr uint32_t max_particle_count = 5000;
 struct Particles {
     static constexpr float radius = 3.f;
     static constexpr float diameter = radius*2;
-    vec2f position[max_particle_count];
-    vec2f velocity[max_particle_count];
-    vec2f acceleration[max_particle_count];
+    vec2f *position;
+    vec2f *velocity;
+    vec2f *acceleration;
+
+    vec2f *gpu_position;
+    vec2f *gpu_velocity;
+    vec2f *gpu_acceleration;
 };
 void derive(Particles& particles, float dt);
 void accelerate(Particles& particles, vec2f gravity);

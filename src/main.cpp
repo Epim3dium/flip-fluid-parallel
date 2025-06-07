@@ -22,6 +22,10 @@ int main() {
     AABB screen_area = AABB::CreateMinSize({0, 0}, {w, h});
     RenderWindow window(VideoMode(w, h), "demo");
     Particles particles;
+    auto area = screen_area;
+    area.setSize(area.size() * 0.9f);
+    init(particles, area, 1.5f);
+
     auto fluid_cell_size = particles.diameter * 2.f;
     auto fluid_size = screen_area.size() / fluid_cell_size;
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
@@ -29,9 +33,6 @@ int main() {
     int numParticleIters = 32;
     int numFluidIters = 16;
     float overrelaxation = 1.9f;
-    auto area = screen_area;
-    area.setSize(area.size() * 0.9f);
-    init(particles, area, 1.5f);
 
     std::cout << "{\n";
     auto dispNameValue = [&](std::string name, auto value, bool isLast = false) {

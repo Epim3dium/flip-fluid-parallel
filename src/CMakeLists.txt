@@ -4,7 +4,7 @@ set(USE_SEQ "seq")
 set(USE_OPENMP "omp")
 set(USE_CUDA "cuda")
 
-set(BUILD_TYPE ${USE_SEQ})
+set(BUILD_TYPE ${USE_CUDA})
 
 set(SEQ_DIR "./sequential")
 set(OPENMP_DIR "./openmp")
