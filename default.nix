@@ -1,7 +1,12 @@
 with import <nixpkgs> {};
 
 let
-  gcc12Stdenv = pkgs.overrideCC pkgs.stdenv pkgs.gcc12;
+    gcc12 = pkgs.gcc12;
+    sfmlWithGcc12 = pkgs.sfml.overrideAttrs (old: {
+        nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.gcc12 ];
+        CXX = "${pkgs.gcc12}/bin/g++";
+        CC  = "${pkgs.gcc12}/bin/gcc";
+    });
 in
 mkShell {
     name = "cuda-and-openmp";
@@ -24,12 +29,12 @@ mkShell {
         libGLU libGL
         glm
         glfw
-        sfml
+        sfmlWithGcc12
         freetype
         vulkan-loader
     ];
 
-    SFML_PATH = "${sfml}/lib/cmake";
+    SFML_PATH = "${sfmlWithGcc12}/lib/cmake";
     shellHook = ''
         export CC=${pkgs.gcc12}/bin/gcc
         export CXX=${pkgs.gcc12}/bin/g++
@@ -45,5 +50,6 @@ mkShell {
         export LD_LIBRARY_PATH=${pkgs.linuxPackages.nvidia_x11}/lib:$LD_LIBRARY_PATH
 
         export LIBRARY_PATH=${pkgs.cudaPackages.cuda_cudart}/lib64:${pkgs.cudaPackages.cuda_cudart}/lib:$LIBRARY_PATH
+            export PATH=$SFML_PATH/bin:$PATH
     '';
 }
