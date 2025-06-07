@@ -1,6 +1,9 @@
 #ifndef EMP_PARTICLE_HPP
 #define EMP_PARTICLE_HPP
-#include "circle.hpp"
+#include "vec2.hpp"
+#include "AABB.hpp"
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <cstdint>
 static constexpr uint32_t max_particle_count = 5000;
@@ -18,5 +21,5 @@ void collide(Particles& particles);
 void collide(Particles& particles, AABB sim_area);
 void constraint(Particles& particles, AABB area);
 void draw(Particles& particles, sf::RenderTarget& window, sf::Color color = sf::Color(255, 255, 255, 255));
-void init_random(Particles& particles, AABB screen_area, float spacing = 1.f, int seed = 42);
+void init(Particles& particles, AABB screen_area, float spacing = 1.f, int seed = 42);
 #endif

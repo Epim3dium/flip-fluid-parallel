@@ -31,7 +31,7 @@ int main() {
     float overrelaxation = 1.9f;
     auto area = screen_area;
     area.setSize(area.size() * 0.9f);
-    init_random(particles, area, 1.5f);
+    init(particles, area, 1.5f);
 
     std::cout << "{\n";
     auto dispNameValue = [&](std::string name, auto value, bool isLast = false) {

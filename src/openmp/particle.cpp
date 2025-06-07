@@ -145,7 +145,7 @@ void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
         window.draw(circ);
     }
 }
-void init_random(Particles& particles, AABB screen_area, float spacing, int seed) {
+void init(Particles& particles, AABB screen_area, float spacing, int seed) {
     srand(seed);
     auto w = screen_area.size().x - particles.radius * 2.f;
     int width = w / (particles.radius * 2 * spacing);

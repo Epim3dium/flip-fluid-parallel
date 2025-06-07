@@ -4,7 +4,7 @@ set(USE_SEQ "seq")
 set(USE_OPENMP "omp")
 set(USE_CUDA "cuda")
 
-set(BUILD_TYPE ${USE_CUDA})
+set(BUILD_TYPE ${USE_SEQ})
 
 set(SEQ_DIR "./sequential")
 set(OPENMP_DIR "./openmp")
@@ -18,7 +18,6 @@ set(SOURCE_FILES
 set(HEADER_FILES
     geometry_func.hpp
     circle.hpp
-    AABB.hpp
     free_list.hpp
 )
 set(SEQ_SOURCE_FILES
@@ -29,6 +28,7 @@ set(SEQ_HEADER_FILES
     sequential/fluid.hpp
     sequential/particle.hpp
     sequential/vec2.hpp
+    sequential/AABB.hpp
 )
 
 set(OPENMP_SOURCE_FILES
@@ -39,15 +39,18 @@ set(OPENMP_HEADER_FILES
     openmp/fluid.hpp
     openmp/particle.hpp
     openmp/vec2.hpp
+    openmp/AABB.hpp
 )
 set(CUDA_SOURCE_FILES
     cuda/fluid.cpp
+    cuda/particle.cu
     cuda/particle.cpp
 )
 set(CUDA_HEADER_FILES
     cuda/fluid.hpp
     cuda/particle.hpp
     cuda/vec2.hpp
+    cuda/AABB.hpp
 )
 if("${BUILD_TYPE}" STREQUAL "${USE_SEQ}")
     message(STATUS "Using sequential code")
