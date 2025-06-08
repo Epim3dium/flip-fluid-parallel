@@ -70,6 +70,14 @@ elseif("${BUILD_TYPE}" STREQUAL "${USE_CUDA}")
         ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
     )
     target_include_directories(fluid-sim PRIVATE ${CUDA_DIR})
+    target_compile_options(fluid-sim PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:--generate-line-info -G>
+    )
+
+    # You can also set host debug flags
+    target_compile_options(fluid-sim PRIVATE
+    -g
+    )
 endif()
 target_link_libraries(fluid-sim
   PUBLIC  sfml-graphics sfml-window sfml-system

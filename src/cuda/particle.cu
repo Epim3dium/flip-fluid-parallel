@@ -1,5 +1,6 @@
 #include "particle.hpp"
 #include "geometry_func.hpp"
+#include "time.hpp"
 #include <cassert>
 #include <device_atomic_functions.h>
 #include "vec2.hpp"
@@ -14,6 +15,7 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <execution>
 #include <unordered_set>
 #define CUDA_KERNEL_CHECK()                                                     \
 do {                                                                            \
@@ -34,17 +36,18 @@ do {                                                                            
     }                                                                           \
 } while (0)
 
-__global__ void accelerateKernel(Particles& particles, vec2f gravity) {
+__global__ void accelerateKernel(Particles& particles, vec2f gravity, int max_count) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= max_particle_count) return;
+    if(i >= max_count) return;
     particles.gpu_acceleration[i] += gravity;
 }
 
 void accelerate(Particles& particles, vec2f gravity) {
     int threadsPerBlock = 1024;
     int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
-    accelerateKernel<<<blocks, threadsPerBlock>>>(particles, gravity);
+    accelerateKernel<<<blocks, threadsPerBlock>>>(particles, gravity, max_particle_count);
     cudaDeviceSynchronize();
+    CUDA_KERNEL_CHECK();
 }
 __global__ void integrateKernel(Particles& particles, float dt) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -58,49 +61,39 @@ void integrate(Particles& particles, float dt) {
     int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
     integrateKernel<<<blocks, threadsPerBlock>>>(particles, dt);
     cudaDeviceSynchronize();
+    CUDA_KERNEL_CHECK();
 }
-__device__ void resolveVelocities(Particles& particles, int p1, int p2, vec2f normal) {
-    auto rel_vel = particles.gpu_velocity[p1] - particles.gpu_velocity[p2];
+__device__ void resolveVelocities(vec2f* velocity, int p1, int p2, vec2f normal) {
+    auto rel_vel = velocity[p1] - velocity[p2];
     auto rel_vel_normal = dot(rel_vel, normal);
     if (rel_vel_normal > 0) return;
     float restitution = 0.1f;
     float impulse = -(1 + restitution) * rel_vel_normal * 0.5;
 
-    particles.gpu_velocity[p1] += impulse * normal;
-    particles.gpu_velocity[p2] -= impulse * normal;
+    velocity[p1] += impulse * normal;
+    velocity[p2] -= impulse * normal;
 
 }
-__device__ bool isColliding(const Particles& particles, int idx1, int idx2) {
+__device__ bool isColliding(const vec2f& v1, const vec2f& v2, float radius) {
     float2 d = make_float2(
-        particles.gpu_position[idx1].x - particles.gpu_position[idx2].x,
-        particles.gpu_position[idx1].y - particles.gpu_position[idx2].y
+        v1.x - v2.x,
+        v1.y - v2.y
     );
     float distSquared = d.x * d.x + d.y * d.y;
-    float combinedRadius = particles.radius * 2.f;
+    float combinedRadius = radius * 2.f;
     return distSquared < (combinedRadius * combinedRadius);
 }
-__device__ void processCollision(Particles& particles, int i, int ii) {
-    auto diff = particles.gpu_position[ii] - particles.gpu_position[i];
-    const float min_dist = particles.radius * 2;
-    if(isColliding(particles, i, ii)) {
+__device__ void processCollision(vec2f* position, vec2f* gpu_vels, int i, int ii, float radius) {
+    auto diff = position[ii] - position[i];
+    const float min_dist = radius * 2;
+    if(isColliding(position[i], position[ii], radius)) {
         auto l = length(diff);
-        auto n = normal(diff);
-        static const float damping = 0.7f;
+        auto n = diff / l;
+        static const float damping = 0.2f;
         auto c = (min_dist - l) * 0.5f * damping;
-        particles.gpu_position[i] -= n * c;
-        particles.gpu_position[ii] += n * c;
-        resolveVelocities(particles, i, ii, -n);
-    }
-}
-//launch only one block
-__global__ void detectCollisionKernel(Particles& particles, bool* collisions) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= max_particle_count) return;
-
-    for (int j = 0; j < max_particle_count; ++j) {
-        if (i != j && isColliding(particles, i, j)) {
-            collisions[i * max_particle_count + j] = true; // Store pairwise collision result
-        }
+        position[i] -= n * c;
+        position[ii] += n * c;
+        resolveVelocities(gpu_vels, i, ii, -n);
     }
 }
 void collide(Particles& particles) {
@@ -111,15 +104,16 @@ struct CompactVec {
     uint32_t size = 0;
 };
 
-__global__ void compareWithNeighbours(Particles& particles, uint32_t* active, uint32_t active_size, uint32_t checkerboard, int max_segs_cols, int max_segs_rows, const CompactVec* grid) {
+__global__ void compareWithNeighbours(vec2f* position, vec2f* velocity, float radius, uint32_t* active, uint32_t* active_sizes, uint32_t checkerboard, int max_segs_cols, int max_segs_rows, const CompactVec* grid) {
     int max_size = max_segs_rows * max_segs_cols;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= active_size)
+    if(i >= active_sizes[checkerboard])
         return;
     auto row = active[i + max_size * checkerboard] / max_segs_cols;
     auto col = active[i + max_size * checkerboard] % max_segs_cols;
     auto& comp_vec1 = grid[row*max_segs_cols + col];
-    if(comp_vec1.size == 0) return;
+    if(comp_vec1.size == 0) 
+        return;
     #define offset_grid(dirx, diry) &grid[(row+dirx) * max_segs_cols + col+diry]
     const CompactVec* comp_vecs[4] = {offset_grid(1, 0), offset_grid(0, 1), offset_grid(1, 1),offset_grid(1,-1)};
 
@@ -127,12 +121,12 @@ __global__ void compareWithNeighbours(Particles& particles, uint32_t* active, ui
         auto idx1 = comp_vec1.data[i];
         for(int ii = i + 1; ii < comp_vec1.size; ii++) {
             auto idx2 = comp_vec1.data[ii];
-            processCollision(particles, idx1, idx2);
+            processCollision(position, velocity, idx1, idx2, radius);
         }
         for(auto other : comp_vecs) {
             for(auto ii = 0; ii < other->size; ii++) {
                 auto idx2 = (*other).data[ii];
-                processCollision(particles, idx1, idx2);
+                processCollision(position, velocity, idx1, idx2, radius);
             }
         }
     }
@@ -148,12 +142,11 @@ __global__ void clearGrid(
 __global__ void assignParticlesToGrid(
     Particles& particles,
     CompactVec* col_grid,
-    int* grid_flags,
     vec2f sim_area_min,
     int max_segs_cols,
     int max_segs_rows,
     uint32_t* active_flags, // Flattened grid of flags (per cell)
-    uint32_t active_flags_sizes[4]
+    uint32_t* active_flags_sizes
 ) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= max_particle_count) return;
@@ -169,10 +162,10 @@ __global__ void assignParticlesToGrid(
 
     // Atomically get index to write into comp_vec
     uint32_t insert_idx = atomicAdd(&comp_vec.size, 1);
-    if (insert_idx < 32) {
+    if (insert_idx < 32U) {
         comp_vec.data[insert_idx] = i;
-    }
-    bool old = atomicExch(&grid_flags[grid_idx], 1);  // atomically set to 1
+    }    
+    bool old = (insert_idx != 0);  //only the first one insterts
     if(old == 1) return;
 
     int checkerboard = (row % 2)*2 + col%2;
@@ -180,49 +173,66 @@ __global__ void assignParticlesToGrid(
     auto idx = atomicAdd(&active_flags_sizes[checkerboard], 1);
     active_flags[idx+checkerboard*max_size] = grid_idx;
 }
-void collide(Particles& particles, AABB sim_area) {
+std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
+    std::map<std::string, float> result;
     const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
     const uint32_t max_segs_rows = sim_area.size().y / particles.diameter + 1 + 2;
 
     static int col_grid_size = 0;
     static CompactVec* gpu_col_grid = nullptr;
-    static int* gpu_grid_flags = nullptr;
     static uint32_t* gpu_active_idxs = nullptr;
+    static uint32_t* gpu_active_sizes = nullptr;
 
+    Stopwatch stop;
     if(col_grid_size != max_segs_rows * max_segs_cols) {
         if(col_grid_size != 0) {
             cudaFree(gpu_col_grid);
             cudaFree(gpu_active_idxs);
-            cudaFree(gpu_grid_flags);
+        }else {
+            CUDA_CALL(cudaMalloc(&gpu_active_sizes, sizeof(uint32_t) * 4U));
+            CUDA_CALL(cudaMemset(gpu_active_sizes, 0, sizeof(uint32_t) * 4U));
         }
         col_grid_size = max_segs_rows * max_segs_cols;
         CUDA_CALL(cudaMalloc(&gpu_active_idxs, sizeof(uint32_t) * col_grid_size * 4U));
         CUDA_CALL(cudaMalloc(&gpu_col_grid, sizeof(CompactVec) * col_grid_size));
         CUDA_CALL(cudaMemset(gpu_col_grid, 0, sizeof(CompactVec) * col_grid_size));
-        CUDA_CALL(cudaMalloc(&gpu_grid_flags, sizeof(int) * col_grid_size));
-        CUDA_CALL(cudaMemset(gpu_grid_flags, 0, sizeof(int) * col_grid_size));
     }
+    result["particles::collide::allocate"] += stop.restart();
 
-    uint32_t active_flags_sizes[4] = {0, 0, 0, 0};
+
     int threadsPerBlock = 1024;
     int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
     assignParticlesToGrid<<<blocks, threadsPerBlock>>>(
-        particles, gpu_col_grid, gpu_grid_flags,
+        particles, gpu_col_grid, 
         sim_area.min,
         max_segs_cols, max_segs_rows,
-        gpu_active_idxs, active_flags_sizes
+        gpu_active_idxs, gpu_active_sizes
     );
     cudaDeviceSynchronize();
+    result["particles::collide::assign"] += stop.restart();
 
     for(int i = 0; i < 4; i++) {
-        auto N = active_flags_sizes[i];
-        compareWithNeighbours<<<(N + 1024) / 1024, 1024>>>(particles, gpu_active_idxs, N, i, max_segs_cols, max_segs_rows, gpu_col_grid);
+        compareWithNeighbours<<<(col_grid_size + threadsPerBlock) / threadsPerBlock, threadsPerBlock>>>(
+            particles.gpu_position,
+            particles.gpu_velocity,
+            particles.radius,
+            gpu_active_idxs,
+            gpu_active_sizes,
+            i,
+            max_segs_cols,
+            max_segs_rows,
+            gpu_col_grid);
         cudaDeviceSynchronize();
     }
+    result["particles::collide::compare"] += stop.restart();
 
     blocks = (col_grid_size + threadsPerBlock - 1) / threadsPerBlock;
-    clearGrid<<<blocks, threadsPerBlock>>>(gpu_col_grid, col_grid_size);
-    CUDA_CALL(cudaMemset(gpu_grid_flags, 0, sizeof(int) * col_grid_size));
+    // clearGrid<<<blocks, threadsPerBlock>>>(gpu_col_grid, col_grid_size);
+    CUDA_CALL(cudaMemset(gpu_active_sizes, 0, sizeof(uint32_t) * 4U));
+    CUDA_CALL(cudaMemset(gpu_col_grid, 0, sizeof(CompactVec) * col_grid_size));
+    CUDA_CALL(cudaMemset(gpu_active_idxs, 0, sizeof(uint32_t) * col_grid_size * 4U));
+    result["particles::collide::reset"] += stop.restart();
+    return result;
 }
 __global__ void constraintKernel(Particles& particles, vec2f area_min, vec2f area_max) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -241,6 +251,7 @@ void constraint(Particles& particles, AABB area) {
     int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
     constraintKernel<<<blocks, threadsPerBlock>>>(particles, area.min, area.max);
     cudaDeviceSynchronize();
+    CUDA_KERNEL_CHECK();
 }
 ParticleSolveBlock::ParticleSolveBlock(Particles& p) : particles(p) {
     CUDA_CALL(cudaMemcpy(particles.gpu_velocity, particles.velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));

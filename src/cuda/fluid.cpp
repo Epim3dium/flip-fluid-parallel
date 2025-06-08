@@ -268,13 +268,14 @@ std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area
         {
             ParticleSolveBlock solv(particles);
             for(int i = 0; i < numParticleIters; i++) {
-                accelerate(particles, gravity);
+                accelerate(particles, gravity * sdt / (float)numParticleIters);
                 bench["particles::accelerate"] += local_stop.restart();
                 integrate(particles, sdt / (float)numParticleIters);
                 bench["particles::integrate"] += local_stop.restart();
                 constraint(particles, sim_area);
                 bench["particles::constraint"] += local_stop.restart();
-                collide(particles, sim_area);
+                auto results = collide(particles, sim_area);
+                for(auto [key, v] : results) bench[key] += v;
                 bench["particles::collide"] += local_stop.restart();
             }
         }

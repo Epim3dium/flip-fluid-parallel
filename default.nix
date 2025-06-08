@@ -25,8 +25,8 @@ mkShell {
         cudaPackages.cuda_cccl
         cudaPackages.cudatoolkit
         cudaPackages.cuda_nvprof
-        cudaPackages.nsight_compute
         cudaPackages.cuda_nvvp
+        jdk8
         linuxPackages.nvidia_x11
         gcc12
         libGLU libGL
@@ -39,6 +39,7 @@ mkShell {
 
     SFML_PATH = "${sfmlWithGcc12}/lib/cmake";
     shellHook = ''
+        export JAVA_HOME=${pkgs.jdk8}
         export CC=${pkgs.gcc12}/bin/gcc
         export CXX=${pkgs.gcc12}/bin/g++
 
@@ -51,6 +52,7 @@ mkShell {
         export LD_LIBRARY_PATH=${pkgs.cudaPackages.cuda_cudart}/lib64:${pkgs.cudaPackages.cuda_cudart}/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=${pkgs.linuxPackages.nvidia_x11}/lib:$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH="$JAVA_HOME/lib:$JAVA_HOME/lib/server:$LD_LIBRARY_PATH"
 
         export LIBRARY_PATH=${pkgs.cudaPackages.cuda_cudart}/lib64:${pkgs.cudaPackages.cuda_cudart}/lib:$LIBRARY_PATH
             export PATH=$SFML_PATH/bin:$PATH
