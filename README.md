@@ -3,13 +3,17 @@
 
 The aim of the project is to compare three implementations of the same approach to fluid simulation in 2D - a two-phase simulation of water and air and their interaction. The simulation is to run in real time to allow observation of phenomena in the fluid cross-section.
 
+## Demo
+
+[Demo](https://github.com/Epim3dium/flip-fluid-parallel/blob/fa88775d0ce31b8534089d728dee8634e7e5df3f/showoff.gif)
+
 ### Theoretical basis
 
 - **Mathematical basis**.
   - Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations)
   - Numerical integration](https://pl.wikipedia.org/wiki/Ca%C5%82kowanie_numeryczne)
   - Gauss-Seidel method](https://pl.wikipedia.org/wiki/Metoda_Gaussa-Seidla)
-- ** FLIP simulation algorithm (PIC extension)**.
+- **FLIP simulation algorithm (PIC extension)**.
   - Particle-in-cell](https://en.wikipedia.org/wiki/Particle-in-cell)
   - FLIP - ten minute physics](https://matthias-research.github.io/pages/tenMinutePhysics/18-flip.pdf)
 - **Collision detection (grid lookup)**.
@@ -46,4 +50,4 @@ The simulation field is divided into a grid of `2R x 2R` cells, where `R` is the
 | ---- | ------ | --------------------------- | --------------------------------------------------------------------------- | ------- |
 | 1    | SEQ    | Sequential Algorithm        | Basic Grid-Lookup Implementation                                            |
 | 2    | OMP    | Parallel (OpenMP)           | Grid-Lookup with Parallel Collision Detection and Resolution                |
-| 3    | CUDA   | Parallel (CUDA)             | All calculations moved to GPU                                               | .
+| 3    | CUDA   | Parallel (CUDA)             | All calculations moved to GPU                                               | 
