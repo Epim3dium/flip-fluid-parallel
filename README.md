@@ -5,7 +5,7 @@ The aim of the project is to compare three implementations of the same approach 
 
 ## Demo
 
-[Demo](https://github.com/Epim3dium/flip-fluid-parallel/blob/fa88775d0ce31b8534089d728dee8634e7e5df3f/showoff.gif)
+![Demo](https://github.com/Epim3dium/flip-fluid-parallel/blob/fa88775d0ce31b8534089d728dee8634e7e5df3f/showoff.gif)
 
 ### Theoretical basis
 
