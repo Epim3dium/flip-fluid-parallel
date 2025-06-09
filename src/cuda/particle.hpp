@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
-static constexpr uint32_t max_particle_count = 2500;
+static constexpr uint32_t max_particle_count = 5000;
 struct Particles {
     static constexpr float radius = 3.0f;
     static constexpr float diameter = radius*2;
@@ -19,6 +19,8 @@ struct Particles {
     vec2f *gpu_position;
     vec2f *gpu_velocity;
     vec2f *gpu_acceleration;
+    vec2f *gpu_position_dt;
+    vec2f *gpu_velocity_dt;
 };
 struct ParticleSolveBlock {
     Particles& particles;

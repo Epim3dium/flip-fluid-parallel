@@ -268,7 +268,7 @@ std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area
         {
             ParticleSolveBlock solv(particles);
             for(int i = 0; i < numParticleIters; i++) {
-                accelerate(particles, gravity * sdt / (float)numParticleIters);
+                accelerate(particles, gravity);
                 bench["particles::accelerate"] += local_stop.restart();
                 integrate(particles, sdt / (float)numParticleIters);
                 bench["particles::integrate"] += local_stop.restart();

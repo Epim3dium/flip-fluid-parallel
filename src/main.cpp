@@ -29,7 +29,7 @@ int main() {
     auto fluid_size = screen_area.size() / fluid_cell_size;
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
-    int numParticleIters = 32;
+    int numParticleIters = 16;
     int numFluidIters = 64;
     float overrelaxation = 1.9f;
 
@@ -79,7 +79,7 @@ int main() {
         total_time += deltaTime;
 
         static std::vector<std::map<std::string, float>> times;
-        auto cur_times = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000000.f), numFluidIters, numParticleIters, overrelaxation, true);
+        auto cur_times = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, true);
         times.push_back(cur_times);
         if(report_clock.getElapsedTime() > 1.f && shouldReport) {
             static bool displayed = false;
