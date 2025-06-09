@@ -253,30 +253,42 @@ void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation,
         }
     }
 }
-std::tuple<float, float> Fluid::simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift) {
+std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift) {
     auto numSubSteps = 1;
     auto sdt = dt / numSubSteps;
+    std::map<std::string, float> bench;
 
     sim_area.setSize(sim_area.size() - vec2f(m_cell_size, m_cell_size)*2.f);
 
     float col_time = 0.f;
     float fluid_time = 0.f;
     for (int step = 0; step < numSubSteps; step++) {
-        Stopwatch stop;
-        for(int i = 0; i < numParticleIters; i++) {
-            accelerate(particles, gravity);
-            integrate(particles, sdt / (float)numParticleIters);
-            constraint(particles, sim_area);
-            collide(particles, sim_area);
+        Stopwatch local_stop;
+        {
+            ParticleSolveBlock solv(particles);
+            for(int i = 0; i < numParticleIters; i++) {
+                accelerate(particles, gravity);
+                bench["particles::accelerate"] += local_stop.restart();
+                integrate(particles, sdt / (float)numParticleIters);
+                bench["particles::integrate"] += local_stop.restart();
+                constraint(particles, sim_area);
+                bench["particles::constraint"] += local_stop.restart();
+                auto results = collide(particles, sim_area);
+                for(auto [key, v] : results) bench[key] += v;
+                bench["particles::collide"] += local_stop.restart();
+            }
         }
-        col_time += stop.restart();
+        local_stop.restart();
         transferVelocities(true, 1.f, particles);
+        bench["fluid::transfer1"] += local_stop.restart();
         updateParticleDensity(particles);
+        bench["fluid::density"] += local_stop.restart();
         solveIncompressibility(numPressureIters, sdt, overRelaxation, compensateDrift);
+        bench["fluid::incompressibility"] += local_stop.restart();
         transferVelocities(false, flipRatio, particles);
-        fluid_time += stop.restart();
+        bench["fluid::transfer2"] += local_stop.restart();
     }
-    return {col_time, fluid_time};
+    return bench;
 }
 void Fluid::draw(AABB area, sf::RenderTarget &window,
           std::unordered_map<eCellTypes, Color> color_table) {

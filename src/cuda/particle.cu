@@ -216,9 +216,6 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
         CUDA_CALL(cudaMalloc(&gpu_col_grid, sizeof(CompactVec) * col_grid_size));
         CUDA_CALL(cudaMemset(gpu_col_grid, 0, sizeof(CompactVec) * col_grid_size));
     }
-    result["particles::collide::allocate"] += stop.restart();
-
-
     int threadsPerBlock = 1024;
     int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
     assignParticlesToGrid<<<blocks, threadsPerBlock>>>(
@@ -254,7 +251,7 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
     CUDA_CALL(cudaMemset(gpu_active_size, 0, sizeof(uint32_t)));
     CUDA_CALL(cudaMemset(gpu_col_grid, 0, sizeof(CompactVec) * col_grid_size));
     CUDA_CALL(cudaMemset(gpu_active_idxs, 0, sizeof(uint32_t) * col_grid_size));
-    result["particles::collide::reset"] += stop.restart();
+    result["particles::collide::cleanup"] += stop.restart();
     return result;
 }
 __global__ void constraintKernel(Particles& particles, vec2f area_min, vec2f area_max) {

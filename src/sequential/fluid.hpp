@@ -7,6 +7,7 @@
 #include "particle.hpp"
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <unordered_map>
 enum class eCellTypes {
     Fluid,
@@ -39,7 +40,7 @@ public:
     void transferVelocities(bool toGrid, float flipRatio, Particles& particles);
     void solveIncompressibility(int numIters, float dt, float overRelaxation, bool compensateDrift = true);
 
-    std::tuple<float, float> simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift);
+    std::map<std::string, float> simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift);
     void draw(AABB area, sf::RenderTarget &window,
               std::unordered_map<eCellTypes, Color> color_table = {
               {eCellTypes::Air, Color(0, 0, 50)},

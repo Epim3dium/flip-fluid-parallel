@@ -1,5 +1,6 @@
 #include "particle.hpp"
 #include "geometry_func.hpp"
+#include "time.hpp"
 #include <SFML/Graphics/CircleShape.hpp>
 #include <array>
 #include <cmath>
@@ -10,6 +11,8 @@
 #include <unordered_set>
 #include <omp.h>
 
+void cleanup(Particles& particles) {
+}
 void accelerate(Particles& particles, vec2f gravity) {
     for(int i = 0; i < max_particle_count; i++) {
         particles.acceleration[i] += gravity;
@@ -75,7 +78,8 @@ void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_
         }
     }
 }
-void collide(Particles& particles, AABB sim_area) {
+std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
+    std::map<std::string, float> result;
     const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
     const uint32_t max_segs_rows = sim_area.size().y / particles.diameter + 1 + 2;
     static std::vector<CompactVec> col_grid;
@@ -85,6 +89,7 @@ void collide(Particles& particles, AABB sim_area) {
     }
     auto max_dim = std::max(max_segs_cols, max_segs_rows);
     std::unordered_set<uint32_t> active_containers;
+    Stopwatch stop;
     int counter = 0;
     for(int i = 0; i < max_particle_count; i++) {
         uint32_t col = (particles.position[i].x - sim_area.min.x) / particles.diameter;
@@ -97,19 +102,22 @@ void collide(Particles& particles, AABB sim_area) {
         comp_vec.push_back(i);
         active_containers.insert((row+1) * max_dim + col+1);
     }
+    result["particles::collide::assign"] += stop.restart();
 
     for(auto i : active_containers) {
         auto row = i / max_dim;
         auto col = i % max_dim;
         compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
     }
+    result["particles::collide::compare"] += stop.restart();
 
     for(auto container : active_containers) {
         auto row = container / max_dim;
         auto col = container % max_dim;
         col_grid[row * max_segs_rows + col].clear();
     }
-
+    result["particles::collide::cleanup"] += stop.restart();
+    return result;
 }
 void constraint(Particles& particles, AABB area) {
     for(int i = 0; i < max_particle_count; i++) {

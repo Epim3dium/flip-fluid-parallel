@@ -1,5 +1,6 @@
 #include "particle.hpp"
 #include "geometry_func.hpp"
+#include "time.hpp"
 #include <SFML/Graphics/CircleShape.hpp>
 #include <array>
 #include <cmath>
@@ -10,6 +11,8 @@
 #include <unordered_set>
 #include <omp.h>
 
+void cleanup(Particles& particles) {
+}
 void accelerate(Particles& particles, vec2f gravity) {
     #pragma omp parallel for
     for(int i = 0; i < max_particle_count; i++) {
@@ -78,11 +81,13 @@ void compareWithNeighbours(Particles& particles, int col, int row, int max_segs_
         }
     }
 }
-void collide(Particles& particles, AABB sim_area) {
+std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
+    std::map<std::string, float> result;
     const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
     const uint32_t max_segs_rows = sim_area.size().y / particles.diameter + 1 + 2;
     static std::vector<CompactVec> col_grid;
 
+    Stopwatch stop;
     if(col_grid.size() != max_segs_rows * max_segs_cols) {
         col_grid = std::vector<CompactVec>(max_segs_rows*max_segs_cols);
     }
@@ -100,6 +105,7 @@ void collide(Particles& particles, AABB sim_area) {
         comp_vec.push_back(i);
         active_containers[(row % 2)*2 + col%2].insert((row+1) * max_dim + col+1);
     }
+    result["particles::collide::assign"] += stop.restart();
 
     for(int i = 0; i < 4; i++) {
         std::vector<uint32_t> active(active_containers[i].begin(),active_containers[i].end());
@@ -110,6 +116,7 @@ void collide(Particles& particles, AABB sim_area) {
             compareWithNeighbours(particles, col, row, max_segs_rows, col_grid);
         }
     }
+    result["particles::collide::compare"] += stop.restart();
 
     for(int i = 0; i < 4; i++) {
         for(auto container : active_containers[i]) {
@@ -118,7 +125,8 @@ void collide(Particles& particles, AABB sim_area) {
             col_grid[row * max_segs_rows + col].clear();
         }
     }
-
+    result["particles::collide::cleanup"] += stop.restart();
+    return result;
 }
 void constraint(Particles& particles, AABB area) {
     #pragma omp parallel for
