@@ -5,13 +5,13 @@
 #include <cstdint>
 #include <map>
 #include <string>
-static constexpr uint32_t max_particle_count = 5000;
 struct Particles {
-    static constexpr float radius = 3.f;
-    static constexpr float diameter = radius*2;
-    vec2f position[max_particle_count];
-    vec2f velocity[max_particle_count];
-    vec2f acceleration[max_particle_count];
+    static uint32_t max_particle_count;
+    static float radius;
+    static float diameter;
+    vec2f *position; 
+    vec2f *velocity;
+    vec2f *acceleration;
 };
 struct ParticleSolveBlock {
     Particles& particles;

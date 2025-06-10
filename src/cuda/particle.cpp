@@ -10,9 +10,9 @@
 #include <cstdlib>
 #include <unordered_set>
 void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
-    sf::VertexArray quads(sf::Quads, 4 * max_particle_count);
+    sf::VertexArray quads(sf::Quads, 4 * Particles::max_particle_count);
 
-    for(int i = 0; i < max_particle_count; i += 1) { 
+    for(int i = 0; i < Particles::max_particle_count; i += 1) { 
         auto pos = particles.position[i];
         pos.y = window.getSize().y - pos.y;
         // define the position of the triangle's points

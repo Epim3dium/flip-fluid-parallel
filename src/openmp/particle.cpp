@@ -10,18 +10,24 @@
 #include <stdexcept>
 #include <unordered_set>
 #include <omp.h>
+float Particles::radius = 3.f;
+float Particles::diameter = Particles::radius * 2.f;
+uint32_t Particles::max_particle_count = 2500;
 
 void cleanup(Particles& particles) {
+    delete particles.acceleration;
+    delete particles.velocity;
+    delete particles.position;
 }
 void accelerate(Particles& particles, vec2f gravity) {
     #pragma omp parallel for
-    for(int i = 0; i < max_particle_count; i++) {
+    for(int i = 0; i < Particles::max_particle_count; i++) {
         particles.acceleration[i] += gravity;
     }
 }
 void integrate(Particles& particles, float dt) {
     #pragma omp parallel for
-    for(int i = 0; i < max_particle_count; i++) {
+    for(int i = 0; i < Particles::max_particle_count; i++) {
         particles.velocity[i] += particles.acceleration[i] * dt;
         particles.position[i] += particles.velocity[i] * dt;
         particles.acceleration[i] = {0, 0};
@@ -53,8 +59,8 @@ void processCollision(Particles& particles, int i, int ii) {
     }
 }
 void collide(Particles& particles) {
-    for(int i = 0; i < max_particle_count; i++) {
-        for(int ii = i+1; ii < max_particle_count; ii++) {
+    for(int i = 0; i < Particles::max_particle_count; i++) {
+        for(int ii = i+1; ii < Particles::max_particle_count; ii++) {
             processCollision(particles, i, ii);
         }
     }
@@ -94,7 +100,7 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
     auto max_dim = std::max(max_segs_cols, max_segs_rows);
     std::unordered_set<uint32_t> active_containers[4];
     int counter = 0;
-    for(int i = 0; i < max_particle_count; i++) {
+    for(int i = 0; i < Particles::max_particle_count; i++) {
         uint32_t col = (particles.position[i].x - sim_area.min.x) / particles.diameter;
         uint32_t row = (particles.position[i].y - sim_area.min.y) / particles.diameter;
         if(col+1 >= max_segs_cols || row+1 >= max_segs_rows) {
@@ -130,7 +136,7 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
 }
 void constraint(Particles& particles, AABB area) {
     #pragma omp parallel for
-    for(int i = 0; i < max_particle_count; i++) {
+    for(int i = 0; i < Particles::max_particle_count; i++) {
         if(!isOverlappingPointAABB(particles.position[i], area)) {
             if(particles.position[i].x > area.max.x || particles.position[i].x < area.min.x)
                 particles.velocity[i].x = 0;
@@ -142,9 +148,9 @@ void constraint(Particles& particles, AABB area) {
     }
 }
 void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
-    sf::VertexArray quads(sf::Quads, 4 * max_particle_count);
+    sf::VertexArray quads(sf::Quads, 4 * Particles::max_particle_count);
 
-    for(int i = 0; i < max_particle_count; i += 1) { 
+    for(int i = 0; i < Particles::max_particle_count; i += 1) { 
         auto pos = particles.position[i];
         pos.y = window.getSize().y - pos.y;
         // define the position of the triangle's points
@@ -161,10 +167,13 @@ void draw(Particles& particles, sf::RenderTarget& window, sf::Color color) {
     window.draw(quads);
 }
 void init(Particles& particles, AABB screen_area, float spacing, int seed) {
+    particles.position = new vec2f[Particles::max_particle_count];
+    particles.velocity = new vec2f[Particles::max_particle_count];
+    particles.acceleration = new vec2f[Particles::max_particle_count];
     srand(seed);
     auto w = screen_area.size().x - particles.radius * 2.f;
     int width = w / (particles.radius * 2 * spacing);
-    for(int i = 0; i < max_particle_count; i++) { 
+    for(int i = 0; i < Particles::max_particle_count; i++) { 
         particles.position[i].x = (i % width) * particles.radius * 2.f * spacing + screen_area.min.x;
         particles.position[i].y = (i / width) * particles.radius * 2.f * spacing + screen_area.min.y;
 

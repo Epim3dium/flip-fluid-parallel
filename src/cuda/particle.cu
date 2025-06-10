@@ -17,6 +17,9 @@
 #include <driver_types.h>
 #include <execution>
 #include <unordered_set>
+float Particles::radius = 3.f;
+float Particles::diameter = Particles::radius * 2.f;
+uint32_t Particles::max_particle_count = 2500;
 #define CUDA_KERNEL_CHECK()                                                     \
 do {                                                                            \
     cudaError_t err = cudaGetLastError();                                       \
@@ -44,22 +47,22 @@ __global__ void accelerateKernel(Particles& particles, vec2f gravity, int max_co
 
 void accelerate(Particles& particles, vec2f gravity) {
     int threadsPerBlock = 1024;
-    int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
-    accelerateKernel<<<blocks, threadsPerBlock>>>(particles, gravity, max_particle_count);
+    int blocks = (particles.max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
+    accelerateKernel<<<blocks, threadsPerBlock>>>(particles, gravity, particles.max_particle_count);
     cudaDeviceSynchronize();
     CUDA_KERNEL_CHECK();
 }
-__global__ void integrateKernel(Particles& particles, float dt) {
+__global__ void integrateKernel(Particles& particles, uint32_t max_count, float dt) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= max_particle_count) return;
+    if(i >= max_count) return;
     particles.gpu_velocity[i] += particles.gpu_acceleration[i] * dt;
     particles.gpu_position[i] += particles.gpu_velocity[i] * dt;
     particles.gpu_acceleration[i] = {0, 0};
 }
 void integrate(Particles& particles, float dt) {
     int threadsPerBlock = 1024;
-    int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
-    integrateKernel<<<blocks, threadsPerBlock>>>(particles, dt);
+    int blocks = (particles.max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
+    integrateKernel<<<blocks, threadsPerBlock>>>(particles, particles.max_particle_count, dt);
     cudaDeviceSynchronize();
     CUDA_KERNEL_CHECK();
 }
@@ -156,7 +159,8 @@ __global__ void assignParticlesToGrid(
     int max_segs_cols,
     int max_segs_rows,
     uint32_t* active, // Flattened grid of flags (per cell)
-    uint32_t* active_size
+    uint32_t* active_size,
+    uint32_t max_particle_count
 ) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= max_particle_count) return;
@@ -200,8 +204,8 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
     static uint32_t* gpu_active_idxs = nullptr;
     static uint32_t* gpu_active_size = nullptr;
 
-    CUDA_CALL(cudaMemset(particles.gpu_position_dt, 0, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMemset(particles.gpu_velocity_dt, 0, sizeof(vec2f) * max_particle_count));
+    CUDA_CALL(cudaMemset(particles.gpu_position_dt, 0, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMemset(particles.gpu_velocity_dt, 0, sizeof(vec2f) * Particles::max_particle_count));
     Stopwatch stop;
     if(col_grid_size != max_segs_rows * max_segs_cols) {
         if(col_grid_size != 0) {
@@ -217,13 +221,13 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
         CUDA_CALL(cudaMemset(gpu_col_grid, 0, sizeof(CompactVec) * col_grid_size));
     }
     int threadsPerBlock = 1024;
-    int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
+    int blocks = (Particles::max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
     assignParticlesToGrid<<<blocks, threadsPerBlock>>>(
         particles.gpu_position, particles.diameter,
         gpu_col_grid, 
         sim_area.min,
         max_segs_cols, max_segs_rows,
-        gpu_active_idxs, gpu_active_size
+        gpu_active_idxs, gpu_active_size, particles.max_particle_count
     );
     cudaDeviceSynchronize();
     result["particles::collide::assign"] += stop.restart();
@@ -241,9 +245,9 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
         gpu_col_grid);
     cudaDeviceSynchronize();
     result["particles::collide::compare"] += stop.restart();
-    blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
-    addDeltas<<<blocks, threadsPerBlock>>>(particles.gpu_position, particles.gpu_position_dt, max_particle_count);
-    addDeltas<<<blocks, threadsPerBlock>>>(particles.gpu_velocity, particles.gpu_velocity_dt, max_particle_count);
+    blocks = (Particles::max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
+    addDeltas<<<blocks, threadsPerBlock>>>(particles.gpu_position, particles.gpu_position_dt, Particles::max_particle_count);
+    addDeltas<<<blocks, threadsPerBlock>>>(particles.gpu_velocity, particles.gpu_velocity_dt, Particles::max_particle_count);
     cudaDeviceSynchronize();
 
     blocks = (col_grid_size + threadsPerBlock - 1) / threadsPerBlock;
@@ -254,9 +258,9 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
     result["particles::collide::cleanup"] += stop.restart();
     return result;
 }
-__global__ void constraintKernel(Particles& particles, vec2f area_min, vec2f area_max) {
+__global__ void constraintKernel(Particles& particles, uint32_t max_count, vec2f area_min, vec2f area_max) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= max_particle_count) return;
+    if(i >= max_count) return;
     if(particles.gpu_position[i].x > area_max.x || particles.gpu_position[i].x < area_min.x)
         particles.gpu_velocity[i].x = 0;
     if(particles.gpu_position[i].y > area_max.y || particles.gpu_position[i].y < area_min.y)
@@ -268,35 +272,35 @@ __global__ void constraintKernel(Particles& particles, vec2f area_min, vec2f are
 }
 void constraint(Particles& particles, AABB area) {
     int threadsPerBlock = 1024;
-    int blocks = (max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
-    constraintKernel<<<blocks, threadsPerBlock>>>(particles, area.min, area.max);
+    int blocks = (Particles::max_particle_count + threadsPerBlock - 1) / threadsPerBlock;
+    constraintKernel<<<blocks, threadsPerBlock>>>(particles, particles.max_particle_count, area.min, area.max);
     cudaDeviceSynchronize();
     CUDA_KERNEL_CHECK();
 }
 ParticleSolveBlock::ParticleSolveBlock(Particles& p) : particles(p) {
-    CUDA_CALL(cudaMemcpy(particles.gpu_velocity, particles.velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
-    CUDA_CALL(cudaMemcpy(particles.gpu_position, particles.position, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
-    CUDA_CALL(cudaMemcpy(particles.gpu_acceleration, particles.acceleration, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
+    CUDA_CALL(cudaMemcpy(particles.gpu_velocity, particles.velocity, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyHostToDevice));
+    CUDA_CALL(cudaMemcpy(particles.gpu_position, particles.position, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyHostToDevice));
+    CUDA_CALL(cudaMemcpy(particles.gpu_acceleration, particles.acceleration, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyHostToDevice));
 }
 ParticleSolveBlock::~ParticleSolveBlock() {
-    CUDA_CALL(cudaMemcpy(particles.velocity, particles.gpu_velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
-    CUDA_CALL(cudaMemcpy(particles.position, particles.gpu_position, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
-    CUDA_CALL(cudaMemcpy(particles.acceleration, particles.gpu_acceleration, sizeof(vec2f) * max_particle_count, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMemcpy(particles.velocity, particles.gpu_velocity, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMemcpy(particles.position, particles.gpu_position, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMemcpy(particles.acceleration, particles.gpu_acceleration, sizeof(vec2f) * Particles::max_particle_count, cudaMemcpyDeviceToHost));
 }
 void init(Particles& particles, AABB screen_area, float spacing, int seed) {
     auto w = screen_area.size().x - particles.radius * 2.f;
     int width = w / (particles.radius * 2 * spacing);
-    CUDA_CALL(cudaMallocHost(&particles.position, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMalloc(&particles.gpu_position, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMallocHost(&particles.acceleration, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMalloc(&particles.gpu_acceleration, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMallocHost(&particles.velocity, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMalloc(&particles.gpu_velocity, sizeof(vec2f) * max_particle_count));
+    CUDA_CALL(cudaMallocHost(&particles.position, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMalloc(&particles.gpu_position, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMallocHost(&particles.acceleration, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMalloc(&particles.gpu_acceleration, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMallocHost(&particles.velocity, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMalloc(&particles.gpu_velocity, sizeof(vec2f) * Particles::max_particle_count));
 
-    CUDA_CALL(cudaMalloc(&particles.gpu_velocity_dt, sizeof(vec2f) * max_particle_count));
-    CUDA_CALL(cudaMalloc(&particles.gpu_position_dt, sizeof(vec2f) * max_particle_count));
+    CUDA_CALL(cudaMalloc(&particles.gpu_velocity_dt, sizeof(vec2f) * Particles::max_particle_count));
+    CUDA_CALL(cudaMalloc(&particles.gpu_position_dt, sizeof(vec2f) * Particles::max_particle_count));
 
-    for(int i = 0; i < max_particle_count; i++) { 
+    for(int i = 0; i < Particles::max_particle_count; i++) { 
         particles.position[i].x = (i % width) * particles.radius * 2.f * spacing + screen_area.min.x;
         particles.position[i].y = (i / width) * particles.radius * 2.f * spacing + screen_area.min.y;
 

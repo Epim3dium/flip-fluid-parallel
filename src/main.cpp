@@ -53,7 +53,7 @@ Options:
             }else if(flag == "-r") {
                 particles.radius = stof(arg);
             }else if(flag == "-n") {
-                max_particle_count = stoi(arg);
+                particles.max_particle_count = stoi(arg);
             }else if(flag == "-i") {
                 numParticleIters = stoi(arg);
             }else if(flag == "-f") {
@@ -95,7 +95,7 @@ Options:
         std::cout << "\n";
     };
     dispNameValue("particle radius", particles.radius);
-    dispNameValue("particle count", max_particle_count);
+    dispNameValue("particle count", Particles::max_particle_count);
     dispNameValue("num of particle iters", numParticleIters);
     dispNameValue("num of fluid iters", numFluidIters);
     dispNameValue("overrelaxation", overrelaxation);
@@ -121,7 +121,7 @@ Options:
         vec2f mouse_dir = mouse_pos - last_mouse_pos;
         const float brush_size = 50.f;
         if(qlen(mouse_dir) != 0 && sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
-            for(int i = 0; i < max_particle_count; i++) {
+            for(int i = 0; i < Particles::max_particle_count; i++) {
                 auto scalar = length(mouse_dir) * 100.f;
                 if(length(mouse_pos - particles.position[i]) < brush_size && scalar > 0.f) {
                     particles.velocity[i] = normal(mouse_dir) * std::clamp(scalar, 0.f, 1000.f);

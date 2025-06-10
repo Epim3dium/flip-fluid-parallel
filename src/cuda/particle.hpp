@@ -8,10 +8,10 @@
 #include <cstdint>
 #include <map>
 #include <string>
-static constexpr uint32_t max_particle_count = 5000;
 struct Particles {
-    static constexpr float radius = 3.0f;
-    static constexpr float diameter = radius*2;
+    static float radius;
+    static float diameter;
+    static uint32_t max_particle_count;
     vec2f *position;
     vec2f *velocity;
     vec2f *acceleration;

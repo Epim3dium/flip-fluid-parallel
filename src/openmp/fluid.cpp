@@ -27,7 +27,7 @@ void Fluid::updateParticleDensity(Particles& particles)
 
     std::fill(particle_density.begin(), particle_density.end(), 0.f);
 
-    for (int i = 0; i < max_particle_count; i++) {
+    for (int i = 0; i < Particles::max_particle_count; i++) {
         auto x = particles.position[i].x;
         auto y = particles.position[i].y;
 
@@ -79,7 +79,7 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
         for (auto i = 0; i < m_num_cells; i++) 
             cell_type[i] = (solid[i] == 0.0 ? eCellTypes::Solid : eCellTypes::Air);
 
-        for (auto i = 0; i < max_particle_count; i++) {
+        for (auto i = 0; i < Particles::max_particle_count; i++) {
             auto x = particles.position[i].x;
             auto y = particles.position[i].y;
             auto xi = /* std::clamp( */floorf(x * inv_cell_size)/* , 0.f, m_width - 1.f) */;
@@ -114,7 +114,7 @@ void Fluid::transferVelocities(bool toGrid, float flipRatio, Particles& particle
             return velocities_diff[idx].y;
         };
 
-        for (auto i = 0; i < max_particle_count; i++) {
+        for (auto i = 0; i < Particles::max_particle_count; i++) {
             auto x = particles.position[i].x;
             auto y = particles.position[i].y;
 
