@@ -3,8 +3,9 @@ find_package(SFML 2.5.1 COMPONENTS system window graphics network audio REQUIRED
 set(USE_SEQ "seq")
 set(USE_OPENMP "omp")
 set(USE_CUDA "cuda")
+set(BUILD_ALL "all")
 
-set(BUILD_TYPE ${USE_CUDA})
+set(BUILD_TYPE ${BUILD_ALL})
 
 set(SEQ_DIR "./sequential")
 set(OPENMP_DIR "./openmp")
@@ -70,23 +71,60 @@ elseif("${BUILD_TYPE}" STREQUAL "${USE_CUDA}")
         ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
     )
     target_include_directories(fluid-sim PRIVATE ${CUDA_DIR})
-    target_compile_options(fluid-sim PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--generate-line-info -G>
+elseif("${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
+    message(STATUS "Building all configurations")
+    add_executable(fluid-sim-seq
+        ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim-seq PRIVATE ${SEQ_DIR})
+    add_executable(fluid-sim-omp
+        ${SOURCE_FILES} ${HEADER_FILES} ${OPENMP_SOURCE_FILES} ${OPENMP_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim-omp PRIVATE ${OPENMP_DIR})
+
+    message(STATUS "Using cuda code")
+    add_executable(fluid-sim-cuda
+        ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim-cuda PRIVATE ${CUDA_DIR})
+    target_link_libraries(fluid-sim-seq
+      PUBLIC  sfml-graphics sfml-window sfml-system
     )
 
-    # You can also set host debug flags
-    target_compile_options(fluid-sim PRIVATE
-    -g
+    target_link_libraries(fluid-sim-seq PRIVATE sfml-graphics )
+    target_include_directories(fluid-sim-seq PRIVATE "${SFML_INCLUDE_DIR}")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(fluid-sim-seq PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(fluid-sim-omp
+      PUBLIC  sfml-graphics sfml-window sfml-system
     )
+
+    target_link_libraries(fluid-sim-omp PRIVATE sfml-graphics )
+    target_include_directories(fluid-sim-omp PRIVATE "${SFML_INCLUDE_DIR}")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(fluid-sim-omp PRIVATE OpenMP::OpenMP_CXX)
+
+    target_link_libraries(fluid-sim-cuda
+      PUBLIC  sfml-graphics sfml-window sfml-system
+    )
+
+    target_link_libraries(fluid-sim-cuda PRIVATE sfml-graphics )
+    target_include_directories(fluid-sim-cuda PRIVATE "${SFML_INCLUDE_DIR}")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(fluid-sim-cuda PRIVATE OpenMP::OpenMP_CXX)
+
 endif()
-target_link_libraries(fluid-sim
-  PUBLIC  sfml-graphics sfml-window sfml-system
-)
 
-target_link_libraries(fluid-sim PRIVATE sfml-graphics )
-target_include_directories(fluid-sim PRIVATE "${SFML_INCLUDE_DIR}")
-find_package(OpenMP REQUIRED)
-target_link_libraries(fluid-sim PRIVATE OpenMP::OpenMP_CXX)
+if(NOT "${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
+    target_link_libraries(fluid-sim-
+      PUBLIC  sfml-graphics sfml-window sfml-system
+    )
+
+    target_link_libraries(fluid-sim PRIVATE sfml-graphics )
+    target_include_directories(fluid-sim PRIVATE "${SFML_INCLUDE_DIR}")
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(fluid-sim PRIVATE OpenMP::OpenMP_CXX)
+endif()
 # target_link_libraries(fluid-sim PRIVATE "${OpenMP_CXX_FLAGS}")
 # target_compile_options(fluid-sim PRIVATE "${OpenMP_CXX_FLAGS}")
 
