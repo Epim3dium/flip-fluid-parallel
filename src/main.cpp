@@ -13,25 +13,79 @@
 
 #include <SFML/Window/Mouse.hpp>
 #include <iostream>
+#include <stdexcept>
 using namespace sf;
 
-int main() {
+int main(int argc, char** argv) {
     float w = 1280;
     float h = 720;
+    int numParticleIters = 16;
+    int numFluidIters = 32;
+    float overrelaxation = 1.9f;
+    float cell_size_scale = 3.f;
+    float raporting_interval = 0.125f;
+    bool pushOut = true;
+    Particles particles;
+    std::string help_msg = R"""(
+Usage: fluid-sim [OPTIONS]
+Options:
+        -w [width] 
+        -h [height] 
+        -c [cell scale] 
+        -r [particle radius] 
+        -n [amount of particles]
+        -i [num of iterations for particle solver]
+        -f [num of iterations for fluid solver]
+        -x [overrelaxation coef]
+        -d [1/0 should drift be corrected]
+        -t [raporting time in seconds]
+)""";
+    try {
+        for(int i = 1; i < argc; i += 2) {
+            std::string flag = argv[i];
+            std::string arg = argv[i+1];
+            if(flag == "-w") {
+                w = stoi(arg);
+            }else if(flag == "-h") {
+                h = stoi(arg);
+            }else if(flag == "-c") {
+                cell_size_scale = stof(arg);
+            }else if(flag == "-r") {
+                particles.radius = stof(arg);
+            }else if(flag == "-n") {
+                max_particle_count = stoi(arg);
+            }else if(flag == "-i") {
+                numParticleIters = stoi(arg);
+            }else if(flag == "-f") {
+                numFluidIters = stoi(arg);
+            }else if(flag == "-x") {
+                overrelaxation = stof(arg);
+            }else if(flag == "-d") {
+                pushOut = stoi(arg);
+            }else if(flag == "-t") {
+                raporting_interval = stof(arg);
+            }else if(flag == "--help") {
+                printf("%s", help_msg.c_str());
+                return 0;
+            }else {
+                throw std::invalid_argument("unrecognized flag");
+            }
+        }
+    }catch(...) {
+        printf("incorrect arguments were given!");
+        printf("%s", help_msg.c_str());
+        return 0;
+    }
+    auto fluid_cell_size = particles.diameter * cell_size_scale;
     AABB screen_area = AABB::CreateMinSize({0, 0}, {w, h});
     RenderWindow window(VideoMode(w, h), "demo");
-    Particles particles;
     auto area = screen_area;
-    area.setSize(area.size() * 0.9f);
+    area.setSize(area.size() * 0.75f);
     init(particles, area, 1.5f);
 
-    auto fluid_cell_size = particles.diameter * 3.f;
     auto fluid_size = screen_area.size() / fluid_cell_size;
     Fluid fluid(fluid_cell_size, fluid_size.x + 1, fluid_size.y + 1);
 
-    int numParticleIters = 16;
-    int numFluidIters = 64;
-    float overrelaxation = 1.9f;
 
     std::cout << "{\n";
     auto dispNameValue = [&](std::string name, auto value, bool isLast = false) {
@@ -79,9 +133,9 @@ int main() {
         total_time += deltaTime;
 
         static std::vector<std::map<std::string, float>> times;
-        auto cur_times = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, true);
+        auto cur_times = fluid.simulate(particles, screen_area, deltaTime, vec2f(0, -1000.f), numFluidIters, numParticleIters, overrelaxation, pushOut);
         times.push_back(cur_times);
-        if(report_clock.getElapsedTime() > 1.f && shouldReport) {
+        if(report_clock.getElapsedTime() > raporting_interval && shouldReport) {
             static bool displayed = false;
             std::cout << "\t\t";
             if(displayed) {
