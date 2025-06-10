@@ -39,6 +39,10 @@ Options:
         -x [overrelaxation coef]
         -d [1/0 should drift be corrected]
         -t [raporting time in seconds]
+When using application:
+        Click and hold mouse to interact,
+        Press G to toggle grid view,
+        Press P to toggle particle view
 )""";
     try {
         for(int i = 1; i < argc; i += 2) {
