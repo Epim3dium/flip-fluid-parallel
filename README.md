@@ -457,33 +457,33 @@ Dla każdego testu:
 W wynikach testów zawarłem czas poświęcony na obliczanie kolizji (im mniej tym lepiej), ponieważ to tam różnią się implementacje oraz miarę klatek na sekundę (im więcej tym lepiej) - kluczowe do oceny czy dany algorytm pozwala na interakcję w czasie rzeczywistym.
 
 ### Test 1
-$\text{Liczba cząsteczek} = 1000$ \\
-$\text{Promień cząsteczki} = 5$ \\
-$\text{Liczba iteracji solvera kolizji} = 32$ \\
+$\text{Liczba cząsteczek} = 1000$\
+$\text{Promień cząsteczki} = 5$\
+$\text{Liczba iteracji solvera kolizji} = 32$\
 ![11](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/11.png)
 ![12](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/12.png)
 ### Test 2
-$\text{Liczba cząsteczek} = 2500$ \\
-$\text{Promień cząsteczki} = 3$ \\
-$\text{Liczba iteracji solvera kolizji} = 32$ \\
+$\text{Liczba cząsteczek} = 2500$\
+$\text{Promień cząsteczki} = 3$\
+$\text{Liczba iteracji solvera kolizji} = 32$\
 ![21](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/21.png)
 ![22](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/22.png)
 ### Test 3
-$\text{Liczba cząsteczek} = 5000$ \\
-$\text{Promień cząsteczki} = 2.5$ \\
-$\text{Liczba iteracji solvera kolizji} = 16$ \\
+$\text{Liczba cząsteczek} = 5000$\
+$\text{Promień cząsteczki} = 2.5$\
+$\text{Liczba iteracji solvera kolizji} = 16$ \
 ![31](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/31.png)
 ![32](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/32.png)
 ### Test 4
-$\text{Liczba cząsteczek} = 5000$ \\
-$\text{Promień cząsteczki} = 2.5$ \\
-$\text{Liczba iteracji solvera kolizji} = 32$ \\
+$\text{Liczba cząsteczek} = 5000$\
+$\text{Promień cząsteczki} = 2.5$\
+$\text{Liczba iteracji solvera kolizji} = 32$\
 ![41](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/41.png)
 ![42](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/42.png)
 ### Test 5
-$\text{Liczba cząsteczek} = 10000$ \\
-$\text{Promień cząsteczki} = 2$ \\
-$\text{Liczba iteracji solvera kolizji} = 16$ \\
+$\text{Liczba cząsteczek} = 10000$\
+$\text{Promień cząsteczki} = 2$\
+$\text{Liczba iteracji solvera kolizji} = 16$\
 ![51](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/51.png)
 ![52](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/52.png)
 
