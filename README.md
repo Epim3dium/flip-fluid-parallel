@@ -67,7 +67,7 @@ Opcje:
   -t [czas raportowania w sekundach]
 ```
 Wyjście w formacie json:
-<code json>
+```
 {
 	"particle radius" : "5",
 	"particle count" : "1000",
@@ -93,7 +93,7 @@ Wyjście w formacie json:
 }
 ```
 #### Struktura cząsteczek
-<code cpp>
+```
 struct Particles {
     uint32_t max_particles_count;
     float radius;
@@ -104,7 +104,7 @@ struct Particles {
 };
 ```
 ### Głowna pętla symulacji
-<code cpp>
+```
 std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area, float dt, vec2f gravity, int numPressureIters, int numParticleIters, float overRelaxation, bool compensateDrift) {
     auto sdt = dt / numSubSteps;
     std::map<std::string, float> bench;
@@ -144,7 +144,7 @@ std::map<std::string, float> Fluid::simulate(Particles& particles, AABB sim_area
 ```
 ### SEQ - Algorytm sekwencyjny (Grid lookup)
 Podstawowa implementacja Grid Lookup
-<code cpp>
+```
 void processCollision(Particles& particles, int i, int ii) {
     auto diff = particles.position[ii] - particles.position[i];
     const float min_dist = particles.radius * 2;
@@ -222,12 +222,12 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
 ```
 ### OMP - Algorytm równoległy, OpenMP
 Aby pozwolić na równoległe przetwarzanie kolizje są przetwarzanie w 9 fazach. Podział na dziewięc faz jest kluczowy, poniważ gwarantuje brak race-conditions (każda komórka może przetworzyć wszystkich swoich sąsiadów bez obaw iż ktoś inny też ich przetwarza). Fragment reprezentujący podział na 9 faz to:
-<code cpp>
+```
 int checkerboard = (row % 3)*3 + col%3;
 active_containers[checkerboard].insert((row+1) * max_dim + col+1);
 ```
 Cały kod:
-<code cpp>
+```
 std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
     std::map<std::string, float> result;
     const uint32_t max_segs_cols = sim_area.size().x / particles.diameter + 1 + 2;
@@ -279,7 +279,7 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
 ```
 ### CUDA - Algorytm równoległy, CUDA
 Pierwszą próbą było zportowanie kodu OpenMP do CUDY, lecz przy wyższej wartości iteracji solvera cząsteczek przesył danych do i z karty graficznej trwał za długo (16 razy na sekundę to dużo!). W zwiąsku z tym zdecydowałem się na przeniesienie wszyskich kalkulacji na cząsteczkach na kartę graficzną. Nowa struktura particles:
-<code cpp>
+```
 struct Particles {
     uint32_t max_particles_count;
     float radius = 3.0f;
@@ -296,7 +296,7 @@ struct Particles {
 };
 ```
 Dodatkową metodą przyspieszenia jest dwu fazowego algorytmu. Przy pomocy dodatkowych tablic (gpu_position_dt i gpu_velocity_dt) gdzie przechowywane będą tylko delty, zmiany po kolizji aktualizowane będą atomowo. Dopiero po rozwiązaniu wszystkich kolizji będzie druga faza dodawania delt to pozycji i prędkości. (umieściłem tutaj jedynie ciekawe fragmenty zmian)
-<code cpp>
+```
 __global__ void compareWithNeighboursKernel(
     const vec2f* position, const vec2f* velocity,
     vec2f* position_dt, vec2f* velocity_dt,
@@ -425,7 +425,7 @@ std::map<std::string, float> collide(Particles& particles, AABB sim_area) {
 
 ```
 Oraz potrzebna dodatkowa struktura do przesyłu danych do i z karty graficznej na w bloku solvera cząsteczek. Potrzeba ParticleSolveBlock w głownej pętli:
-<code cpp>
+```
 ParticleSolveBlock::ParticleSolveBlock(Particles& p) : particles(p) {
     CUDA_CALL(cudaMemcpy(particles.gpu_velocity, particles.velocity, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
     CUDA_CALL(cudaMemcpy(particles.gpu_position, particles.position, sizeof(vec2f) * max_particle_count, cudaMemcpyHostToDevice));
