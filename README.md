@@ -20,8 +20,8 @@ Celem projektu jest porównanie trzech implementacji tego samego podejścia do s
   * Detekcja kolizji (grid lookup):
     * https://www.gorillasun.de/blog/particle-system-optimization-grid-lookup-spatial-hashing/
 #### Sprzęt
-CPU: Intel i5-12600k \\
-GPU: RTX 4070 Super \\
+CPU: Intel i5-12600k \
+GPU: RTX 4070 Super \
 RAM: 32GB
 
 ## Opis problemu
@@ -438,7 +438,7 @@ ParticleSolveBlock::~ParticleSolveBlock() {
 }
 ```
 ## Testowanie wydajności
-Ponieważ symulacja ma być real-time, jedynym wymogiem jest zachowanie 60 klatek na sekundę. Dla każdego z podejść przygotowałem serię pomiarów aby sprawdzić jak się zachowują pod innymi typami prac. \\
+Ponieważ symulacja ma być real-time, jedynym wymogiem jest zachowanie 60 klatek na sekundę. Dla każdego z podejść przygotowałem serię pomiarów aby sprawdzić jak się zachowują pod innymi typami prac. \
 W każdym z testów ciecz będzie startować w kolumnie a pomiary będą się odbywać do uzyskania statycznej tafli wody.
 ### Parametry testów
 Dla każdego testu: 
@@ -488,8 +488,8 @@ $\text{Liczba iteracji solvera kolizji} = 16$\
 ![52](https://github.com/Epim3dium/flip-fluid-parallel/blob/6a6c75a61c561038be48767e7c9564065c5b1ddc/media/52.png)
 
 ## Wnioski
-Łatwość zrównoleglenia kalkulacji kolizji sprawia iż zarówno implementacja OpenMP jak i CUDA kompletnie dominuje w pierwszych dwóch przypadkach testowych i dopiero wraz ze wzrostem ilości cząsteczek, różnica wydajności implementacji CUDA oraz OpenMP zaczyna być znacząco widoczna. \\
+Łatwość zrównoleglenia kalkulacji kolizji sprawia iż zarówno implementacja OpenMP jak i CUDA kompletnie dominuje w pierwszych dwóch przypadkach testowych i dopiero wraz ze wzrostem ilości cząsteczek, różnica wydajności implementacji CUDA oraz OpenMP zaczyna być znacząco widoczna. \
 Implementacja sekwencyjna przestaje być interaktywna (klatki na sekunde spadają poniżej 60) już w przypadku testu numer 2. Oznacza to iż nie jest to rozwiązanie chociażby dla umiarowanego rozmiaru symulacji.
-W testach 4' oraz 5' implementacje OpenMP ledwo pozwala na interakcje. Nie jest więc dobrym wyborem dla bardziej wymagających symulacji. \\
-Porównując wyniki CUDA z testów 3 oraz 4 można stwierdzić iż nie różnią się one znacznie, pomimo iż w teście 4' wykonywane są dwa razy więcej iteracji. Można z tego wywnioskować, iż głównym wąskim gardłem dla implementacji CUDA jest czas przesyłu danych z procesora na kartę graficzną i z powrotem. Sprawia to, że jest to idealne podejście dla symulacji większych/bardziej dokładnych symulacji  cieczy (o większej wartości liczby iteracji solvera). \\
+W testach 4' oraz 5' implementacje OpenMP ledwo pozwala na interakcje. Nie jest więc dobrym wyborem dla bardziej wymagających symulacji. \
+Porównując wyniki CUDA z testów 3 oraz 4 można stwierdzić iż nie różnią się one znacznie, pomimo iż w teście 4' wykonywane są dwa razy więcej iteracji. Można z tego wywnioskować, iż głównym wąskim gardłem dla implementacji CUDA jest czas przesyłu danych z procesora na kartę graficzną i z powrotem. Sprawia to, że jest to idealne podejście dla symulacji większych/bardziej dokładnych symulacji  cieczy (o większej wartości liczby iteracji solvera). \
 Kolejnym etapem projektu byłoby zrównoleglenie części odpowiedzialnej za rozwiązywanie równania nieściśliwości. 
