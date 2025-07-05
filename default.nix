@@ -48,13 +48,13 @@ mkShell {
 
         export CUDA_HOME=${pkgs.cudaPackages.cuda_cudart}
         export CUDA_PATH=${pkgs.cudaPackages.cuda_cudart}
-
+        #
         export LD_LIBRARY_PATH=${pkgs.cudaPackages.cuda_cudart}/lib64:${pkgs.cudaPackages.cuda_cudart}/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=${pkgs.linuxPackages.nvidia_x11}/lib:$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH="$JAVA_HOME/lib:$JAVA_HOME/lib/server:$LD_LIBRARY_PATH"
 
         export LIBRARY_PATH=${pkgs.cudaPackages.cuda_cudart}/lib64:${pkgs.cudaPackages.cuda_cudart}/lib:$LIBRARY_PATH
-            export PATH=$SFML_PATH/bin:$PATH
+        export PATH=$SFML_PATH/bin:$PATH
     '';
 }

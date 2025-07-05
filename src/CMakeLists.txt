@@ -1,11 +1,5 @@
 find_package(SFML 2.5.1 COMPONENTS system window graphics network audio REQUIRED)
 
-set(USE_SEQ "seq")
-set(USE_OPENMP "omp")
-set(USE_CUDA "cuda")
-set(BUILD_ALL "all")
-
-set(BUILD_TYPE ${BUILD_ALL})
 
 set(SEQ_DIR "./sequential")
 set(OPENMP_DIR "./openmp")
@@ -116,7 +110,7 @@ elseif("${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
 endif()
 
 if(NOT "${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
-    target_link_libraries(fluid-sim-
+    target_link_libraries(fluid-sim
       PUBLIC  sfml-graphics sfml-window sfml-system
     )
 
