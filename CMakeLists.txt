@@ -1,13 +1,10 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(USE_SEQ "seq")
-set(USE_OPENMP "omp")
-set(USE_CUDA "cuda")
-set(BUILD_ALL "all")
+option(USE_CUDA "Enable CUDA support" OFF)
+option(USE_OMP "Enable OpenMP support" OFF)
+option(BUILD_ALL "Build all" OFF)
 
-set(BUILD_TYPE ${USE_OPENMP})
-
-if("${BUILD_TYPE}" STREQUAL "${USE_CUDA}")
+if(USE_CUDA)
     project(fluid-sim
         VERSION 1.0
         LANGUAGES CXX C CUDA

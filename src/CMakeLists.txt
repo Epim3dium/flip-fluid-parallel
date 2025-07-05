@@ -47,25 +47,7 @@ set(CUDA_HEADER_FILES
     cuda/vec2.hpp
     cuda/AABB.hpp
 )
-if("${BUILD_TYPE}" STREQUAL "${USE_SEQ}")
-    message(STATUS "Using sequential code")
-    add_executable(fluid-sim
-        ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
-    )
-    target_include_directories(fluid-sim PRIVATE ${SEQ_DIR})
-elseif("${BUILD_TYPE}" STREQUAL "${USE_OPENMP}")
-    message(STATUS "Using openMP code")
-    add_executable(fluid-sim
-        ${SOURCE_FILES} ${HEADER_FILES} ${OPENMP_SOURCE_FILES} ${OPENMP_HEADER_FILES}
-    )
-    target_include_directories(fluid-sim PRIVATE ${OPENMP_DIR})
-elseif("${BUILD_TYPE}" STREQUAL "${USE_CUDA}")
-    message(STATUS "Using cuda code")
-    add_executable(fluid-sim
-        ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
-    )
-    target_include_directories(fluid-sim PRIVATE ${CUDA_DIR})
-elseif("${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
+if(BUILD_ALL)
     message(STATUS "Building all configurations")
     add_executable(fluid-sim-seq
         ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
@@ -76,7 +58,6 @@ elseif("${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
     )
     target_include_directories(fluid-sim-omp PRIVATE ${OPENMP_DIR})
 
-    message(STATUS "Using cuda code")
     add_executable(fluid-sim-cuda
         ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
     )
@@ -106,10 +87,28 @@ elseif("${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
     target_include_directories(fluid-sim-cuda PRIVATE "${SFML_INCLUDE_DIR}")
     find_package(OpenMP REQUIRED)
     target_link_libraries(fluid-sim-cuda PRIVATE OpenMP::OpenMP_CXX)
+elseif(USE_OMP)
+    message(STATUS "Using openMP code")
+    add_executable(fluid-sim
+        ${SOURCE_FILES} ${HEADER_FILES} ${OPENMP_SOURCE_FILES} ${OPENMP_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim PRIVATE ${OPENMP_DIR})
+elseif(USE_CUDA)
+    message(STATUS "Using cuda code")
+    add_executable(fluid-sim
+        ${SOURCE_FILES} ${HEADER_FILES} ${CUDA_SOURCE_FILES} ${CUDA_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim PRIVATE ${CUDA_DIR})
+else()
+    message(STATUS "Using sequential code")
+    add_executable(fluid-sim
+        ${SOURCE_FILES} ${HEADER_FILES} ${SEQ_SOURCE_FILES} ${SEQ_HEADER_FILES}
+    )
+    target_include_directories(fluid-sim PRIVATE ${SEQ_DIR})
 
 endif()
 
-if(NOT "${BUILD_TYPE}" STREQUAL "${BUILD_ALL}")
+if(NOT BUILD_ALL)
     target_link_libraries(fluid-sim
       PUBLIC  sfml-graphics sfml-window sfml-system
     )
